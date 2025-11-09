@@ -65,20 +65,22 @@ async function fetchCalendar(year) {
   const response = await fetch(`/api/calendar?year=${encodeURIComponent(year)}`);
   if (!response.ok) {
     let errorMessage = `カレンダーを取得できませんでした (${response.status})`;
-    try {
-      const data = await response.json();
-      if (data && data.message) {
-        errorMessage += `: ${data.message}`;
-      }
-    } catch {
+    const bodyText = await response.text().catch(() => "");
+    if (bodyText) {
+      let errorDetail = bodyText;
       try {
-        const text = await response.text();
-        if (text) {
-          errorMessage += `: ${text}`;
+        const data = JSON.parse(bodyText);
+        if (data && typeof data === "object") {
+          if ("error" in data && data.error) {
+            errorDetail = data.error;
+          } else if ("message" in data && data.message) {
+            errorDetail = data.message;
+          }
         }
       } catch {
-        // ignore
+        // JSON に変換できない場合は生テキストを利用する
       }
+      errorMessage += `: ${errorDetail}`;
     }
     throw new Error(errorMessage);
   }
