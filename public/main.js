@@ -37,6 +37,7 @@ function renderWeeks(tbody, weeks) {
 
 function renderCalendar(calendar) {
   calendarElement.innerHTML = "";
+  const weekdayHeader = createWeekdayHeaderRow();
 
   calendar.months.forEach((month) => {
     const monthNode = monthTemplate.content.firstElementChild.cloneNode(true);
@@ -45,7 +46,7 @@ function renderCalendar(calendar) {
     const weeksBody = monthNode.querySelector(".weeks");
 
     header.textContent = month.title;
-    weekdayRow.appendChild(createWeekdayHeaderRow());
+    weekdayRow.appendChild(weekdayHeader.cloneNode(true));
     renderWeeks(weeksBody, month.weeks);
 
     calendarElement.appendChild(monthNode);
@@ -86,6 +87,11 @@ function initYearForm() {
 }
 
 function init() {
+  if (!calendarElement || !yearForm || !yearInput || !monthTemplate) {
+    console.error("必要なUI要素が見つかりませんでした。");
+    return;
+  }
+
   initYearForm();
   const initialYear = Number.parseInt(yearInput.value, 10);
   void loadCalendar(initialYear);

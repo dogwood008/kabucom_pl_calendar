@@ -25,8 +25,12 @@ function getDaysInMonth(year: number, monthIndex: number): number {
   return new Date(year, monthIndex + 1, 0).getDate();
 }
 
-function buildCalendarDay(year: number, monthIndex: number, day: number): CalendarDay {
-  const currentDate = new Date();
+function buildCalendarDay(
+  year: number,
+  monthIndex: number,
+  day: number,
+  today: Date,
+): CalendarDay {
   const date = new Date(year, monthIndex, day);
   const isoDate = [
     date.getFullYear(),
@@ -38,13 +42,13 @@ function buildCalendarDay(year: number, monthIndex: number, day: number): Calend
     day,
     isoDate,
     isToday:
-      currentDate.getFullYear() === year &&
-      currentDate.getMonth() === monthIndex &&
-      currentDate.getDate() === day,
+      today.getFullYear() === year &&
+      today.getMonth() === monthIndex &&
+      today.getDate() === day,
   };
 }
 
-function createMonth(year: number, monthIndex: number): CalendarMonth {
+function createMonth(year: number, monthIndex: number, today: Date): CalendarMonth {
   const daysInMonth = getDaysInMonth(year, monthIndex);
   const firstDayOfWeek = new Date(year, monthIndex, 1).getDay();
 
@@ -55,7 +59,7 @@ function createMonth(year: number, monthIndex: number): CalendarMonth {
 
   for (let weekday = 0; weekday < 7; weekday += 1) {
     if (weekday >= firstDayOfWeek) {
-      currentWeek[weekday] = buildCalendarDay(year, monthIndex, currentDay);
+      currentWeek[weekday] = buildCalendarDay(year, monthIndex, currentDay, today);
       currentDay += 1;
     }
   }
@@ -65,7 +69,7 @@ function createMonth(year: number, monthIndex: number): CalendarMonth {
     currentWeek = Array.from({ length: 7 }, () => null);
 
     for (let weekday = 0; weekday < 7 && currentDay <= daysInMonth; weekday += 1) {
-      currentWeek[weekday] = buildCalendarDay(year, monthIndex, currentDay);
+      currentWeek[weekday] = buildCalendarDay(year, monthIndex, currentDay, today);
       currentDay += 1;
     }
 
@@ -84,7 +88,8 @@ export function createYearCalendar(year: number): CalendarYear {
     throw new Error(`年の指定が不正です: "${year}"`);
   }
 
-  const months = Array.from({ length: 12 }, (_, index) => createMonth(year, index));
+  const today = new Date();
+  const months = Array.from({ length: 12 }, (_, index) => createMonth(year, index, today));
 
   return {
     year,
@@ -99,8 +104,12 @@ export function parseYear(value: string | undefined, fallbackYear: number): numb
 
   const parsedYear = Number.parseInt(value, 10);
 
-  if (!Number.isInteger(parsedYear) || parsedYear <= 0) {
-    throw new Error(`年の指定が不正です: "${value}"`);
+  if (Number.isNaN(parsedYear)) {
+    throw new Error(`年は数値で指定してください: "${value}"`);
+  }
+
+  if (parsedYear <= 0) {
+    throw new Error(`年の指定が不正です（1以上の整数で指定してください）: "${value}"`);
   }
 
   return parsedYear;

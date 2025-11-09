@@ -35,7 +35,8 @@ function createServer() {
     let year: number;
 
     try {
-      year = parseYear(typeof req.query.year === "string" ? req.query.year : undefined, now.getFullYear());
+      const yearParam = typeof req.query.year === "string" ? req.query.year : undefined;
+      year = parseYear(yearParam, now.getFullYear());
     } catch (error) {
       const message = error instanceof Error ? error.message : "不正なリクエストです";
       res.status(400).json({ error: message });
