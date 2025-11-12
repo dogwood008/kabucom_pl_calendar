@@ -19,7 +19,5 @@ npm run dev
 ## 本番ビルド & 起動
 
 ```bash
+npm run build
 npm start
-```
-
-`dist/` に TypeScript のビルド成果物が生成され、Express サーバーが起動します。
