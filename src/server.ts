@@ -73,6 +73,8 @@ function createServer() {
       res.status(400).json({ error: message });
     }
 
+  });
+
   app.get("*", (_, res) => {
     res.sendFile(path.join(publicDirectory, "index.html"));
   });
