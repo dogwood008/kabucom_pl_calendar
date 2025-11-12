@@ -1,7 +1,7 @@
 import express from "express";
 import path from "node:path";
 import { createYearCalendar, parseYear } from "./calendar";
-import { getDailyTradeSummariesForYear } from "./trades";
+import { getTradeDataForYear } from "./trades";
 
 const parsedPort = Number.parseInt(process.env.PORT ?? "3000", 10);
 const DEFAULT_PORT =
@@ -68,10 +68,11 @@ function createServer() {
 
     try {
       const calendar = createYearCalendar(year);
-      const tradeSummaries = await getDailyTradeSummariesForYear(year);
+      const { summaries, tradesByDate } = await getTradeDataForYear(year);
       res.json({
         ...calendar,
-        tradeSummaries,
+        tradeSummaries: summaries,
+        dailyTrades: tradesByDate,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "カレンダー生成中にエラーが発生しました";

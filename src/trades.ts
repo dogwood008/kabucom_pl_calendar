@@ -10,11 +10,26 @@ export interface DailyTradeSummary {
   netProfit: number;
 }
 
-interface TradeRecord {
+export interface TradeDetail {
   isoDate: string;
+  isoTime: string;
+  isoDateTime: string;
+  symbol: string;
+  contractMonth: string;
   side: string;
+  action: string;
   quantity: number;
+  price: number;
+  fee: number;
+  grossProfit: number;
   netProfit: number;
+}
+
+type TradeRecord = TradeDetail;
+
+export interface TradeDataForYear {
+  summaries: Record<string, DailyTradeSummary>;
+  tradesByDate: Record<string, TradeDetail[]>;
 }
 
 const CSV_RELATIVE_PATH = ["..", "docs", "dummy.csv"];
@@ -36,7 +51,7 @@ function parseCurrency(value: string | undefined): number {
 
   let sign = 1;
   let index = 0;
-  const firstChar = trimmed[0];
+  const firstChar = trimmed[0] ?? "";
   if (firstChar === "+" || firstChar === "-" || firstChar === "−") {
     sign = firstChar === "+" ? 1 : -1;
     index = 1;
@@ -58,6 +73,27 @@ function parseInteger(value: string | undefined): number {
   }
   const parsed = Number.parseInt(value.trim().replace(/,/g, ""), 10);
   return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function parseDecimal(value: string | undefined): number {
+  if (!value) {
+    return 0;
+  }
+  const normalized = value.trim().replace(/,/g, "");
+  const parsed = Number.parseFloat(normalized);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function normalizeTimeString(value: string | undefined): string {
+  if (!value) {
+    return "00:00";
+  }
+  const [hourRaw, minuteRaw = "00"] = value.split(":");
+  const hour = Number.parseInt(hourRaw ?? "0", 10);
+  const minute = Number.parseInt(minuteRaw ?? "0", 10);
+  const safeHour = Number.isNaN(hour) ? 0 : hour;
+  const safeMinute = Number.isNaN(minute) ? 0 : minute;
+  return `${safeHour.toString().padStart(2, "0")}:${safeMinute.toString().padStart(2, "0")}`;
 }
 
 function toIsoDate(dateString: string | undefined): string | null {
@@ -147,10 +183,24 @@ function mapRowsToRecords(rows: string[][]): TradeRecord[] {
         return null;
       }
 
+      const isoTime = normalizeTimeString(row[fieldIndices["成立時間"]] ?? "");
+      const symbol = (row[fieldIndices["銘柄"]] ?? "").trim();
+      const contractMonth = (row[fieldIndices["限月"]] ?? "").trim();
+      const side = (row[fieldIndices["売買"]] ?? "").trim();
+      const action = (row[fieldIndices["取引"]] ?? "").trim();
+
       return {
         isoDate: date,
-        side: (row[fieldIndices["売買"]] ?? "").trim(),
+        isoTime,
+        isoDateTime: `${date}T${isoTime}:00`,
+        symbol,
+        contractMonth,
+        side,
+        action,
         quantity: parseInteger(row[fieldIndices["取引数量（枚）"]] ?? ""),
+        price: parseDecimal(row[fieldIndices["成立値段"]] ?? ""),
+        fee: parseCurrency(row[fieldIndices["手数料"]] ?? ""),
+        grossProfit: parseCurrency(row[fieldIndices["売買損益"]] ?? ""),
         netProfit: parseCurrency(row[fieldIndices["確定損益"]] ?? ""),
       };
     })
@@ -178,11 +228,16 @@ async function loadTradeRecords(): Promise<TradeRecord[]> {
   return cachedRecords;
 }
 
-export async function getDailyTradeSummariesForYear(
-  year: number,
-): Promise<Record<string, DailyTradeSummary>> {
+function sortTrades(trades: TradeDetail[]): TradeDetail[] {
+  return trades
+    .slice()
+    .sort((a, b) => (a.isoDateTime < b.isoDateTime ? -1 : a.isoDateTime > b.isoDateTime ? 1 : 0));
+}
+
+export async function getTradeDataForYear(year: number): Promise<TradeDataForYear> {
   const records = await loadTradeRecords();
   const summaries = new Map<string, DailyTradeSummary>();
+  const tradesByDate = new Map<string, TradeDetail[]>();
 
   records.forEach((record) => {
     if (!record.isoDate.startsWith(`${year}-`)) {
@@ -207,7 +262,28 @@ export async function getDailyTradeSummariesForYear(
     }
     base.netProfit += record.netProfit;
     summaries.set(record.isoDate, base);
+
+    const existingTrades = tradesByDate.get(record.isoDate) ?? [];
+    existingTrades.push(record);
+    tradesByDate.set(record.isoDate, existingTrades);
   });
 
-  return Object.fromEntries(summaries);
+  const sortedTradesByDate = Array.from(tradesByDate.entries()).reduce<
+    Record<string, TradeDetail[]>
+  >((acc, [isoDate, trades]) => {
+    acc[isoDate] = sortTrades(trades);
+    return acc;
+  }, {});
+
+  return {
+    summaries: Object.fromEntries(summaries),
+    tradesByDate: sortedTradesByDate,
+  };
+}
+
+export async function getDailyTradeSummariesForYear(
+  year: number,
+): Promise<Record<string, DailyTradeSummary>> {
+  const { summaries } = await getTradeDataForYear(year);
+  return summaries;
 }

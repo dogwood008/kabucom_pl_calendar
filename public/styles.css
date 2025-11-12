@@ -163,16 +163,11 @@ main {
 }
 
 .weeks td {
-  text-align: left;
-  padding: 0.45rem 0.6rem 0.75rem;
-  font-size: 0.95rem;
+  text-align: center;
+  padding: 0.65rem 0.25rem;
+  font-size: 1rem;
   border-bottom: 1px solid rgba(148, 163, 184, 0.25);
-  vertical-align: top;
-  min-height: 4.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  position: relative;
+  vertical-align: middle;
 }
 
 .weeks tr:last-child td {
@@ -180,42 +175,22 @@ main {
 }
 
 .weeks td.empty {
-  background-color: rgba(148, 163, 184, 0.1);
+  background-color: rgba(148, 163, 184, 0.08);
 }
 
 .weeks td.today {
-  box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.5);
-}
-
-.weeks td.today .day-number {
-  color: #1d4ed8;
+  box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.6);
+  border-radius: 0.5rem;
 }
 
 .day-number {
+  display: block;
   font-weight: 600;
   font-size: 1rem;
 }
 
-.trade-activity {
-  font-size: 0.8rem;
-  font-weight: 600;
-  background-color: rgba(15, 23, 42, 0.05);
-  border-radius: 0.5rem;
-  padding: 0.2rem 0.45rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.4rem;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.trade-activity__pnl {
-  font-variant-numeric: tabular-nums;
-}
-
 .weeks td.has-trade {
-  background-color: rgba(15, 23, 42, 0.03);
+  color: #1f2933;
 }
 
 .weeks td.has-trade.profit {
@@ -223,26 +198,44 @@ main {
 }
 
 .weeks td.has-trade.loss {
-  background-color: rgba(248, 113, 113, 0.2);
+  background-color: rgba(248, 113, 113, 0.22);
 }
 
 .weeks td.has-trade.neutral {
-  background-color: rgba(59, 130, 246, 0.17);
+  background-color: rgba(59, 130, 246, 0.2);
 }
 
-.weeks td.has-trade.profit .trade-activity {
-  background-color: rgba(16, 185, 129, 0.25);
-  color: #065f46;
+.calendar-month--modal .weeks td {
+  text-align: left;
+  padding: 0.8rem 0.6rem;
 }
 
-.weeks td.has-trade.loss .trade-activity {
-  background-color: rgba(248, 113, 113, 0.35);
-  color: #991b1b;
+.calendar-month--modal .day-number {
+  font-size: 1.1rem;
 }
 
-.weeks td.has-trade.neutral .trade-activity {
-  background-color: rgba(59, 130, 246, 0.25);
-  color: #1d4ed8;
+.day-total {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.weeks td.selectable-day {
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.weeks td.selectable-day:hover,
+.weeks td.selectable-day:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.3);
+  transform: translateY(-1px);
+}
+
+.weeks td.is-selected {
+  box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.6);
+  border-radius: 0.5rem;
 }
 
 @media (max-width: 600px) {
@@ -320,4 +313,115 @@ main {
   font-size: 1.05rem;
   padding: 0.75rem 0.75rem 1rem;
   min-height: 5rem;
+}
+
+.month-modal__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 900px) {
+  .month-modal__content {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+}
+
+.month-modal__calendar-wrapper {
+  flex: 1 1 55%;
+}
+
+.day-detail-panel {
+  flex: 1 1 45%;
+  background: #ffffff;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.2);
+}
+
+.day-detail-panel__title {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+.day-detail-panel__message {
+  margin: 0;
+  color: #475569;
+}
+
+.day-detail-panel__summary {
+  margin: 0 0 1rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.trade-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.trade-list__item {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(248, 250, 252, 0.9);
+  position: relative;
+}
+
+.trade-list__header,
+.trade-list__meta,
+.trade-list__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.trade-list__header {
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.trade-list__time {
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
+}
+
+.trade-list__product {
+  text-align: right;
+}
+
+.trade-list__meta {
+  color: #475569;
+  margin-bottom: 0.3rem;
+}
+
+.trade-list__footer {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.trade-list__pnl {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.trade-list__pnl.profit {
+  color: #15803d;
+}
+
+.trade-list__pnl.loss {
+  color: #b91c1c;
+}
+
+.trade-list__pnl.neutral {
+  color: #0f172a;
 }
