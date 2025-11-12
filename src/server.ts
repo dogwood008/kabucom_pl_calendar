@@ -75,7 +75,7 @@ function createServer() {
 
   });
 
-  app.get("*", (_, res) => {
+  app.get(/.*/, (_, res) => {
     res.sendFile(path.join(publicDirectory, "index.html"));
   });
 
