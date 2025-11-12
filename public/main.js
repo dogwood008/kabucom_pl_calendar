@@ -19,7 +19,19 @@ function createWeekdayHeaderRow(labels) {
   return fragment;
 }
 
-function renderWeeks(tbody, weeks) {
+function formatCurrencyJPY(value) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "0円";
+  }
+  if (value === 0) {
+    return "0円";
+  }
+  const sign = value > 0 ? "+" : "-";
+  const absolute = Math.round(Math.abs(value));
+  return `${sign}${absolute.toLocaleString("ja-JP")}円`;
+}
+
+function renderWeeks(tbody, weeks, tradeSummaries = {}) {
   weeks.forEach((week) => {
     const tr = document.createElement("tr");
     week.forEach((day) => {
@@ -27,11 +39,41 @@ function renderWeeks(tbody, weeks) {
       if (day === null) {
         td.classList.add("empty");
       } else {
-        td.textContent = String(day.day);
+        const dayNumber = document.createElement("span");
+        dayNumber.className = "day-number";
+        dayNumber.textContent = String(day.day);
+        td.appendChild(dayNumber);
         if (day.isToday) {
           td.classList.add("today");
         }
         td.setAttribute("data-date", day.isoDate);
+        const summary = tradeSummaries[day.isoDate];
+        if (summary) {
+          td.classList.add("has-trade");
+          if (summary.netProfit > 0) {
+            td.classList.add("profit");
+          } else if (summary.netProfit < 0) {
+            td.classList.add("loss");
+          } else {
+            td.classList.add("neutral");
+          }
+          td.title = [
+            `取引件数: ${summary.tradeCount}件`,
+            `買い: ${summary.buyCount}件 / 売り: ${summary.sellCount}件`,
+            `取引数量: ${summary.totalQuantity}枚`,
+            `純損益: ${formatCurrencyJPY(summary.netProfit)}`,
+          ].join("\n");
+          const activity = document.createElement("div");
+          activity.className = "trade-activity";
+          const countSpan = document.createElement("span");
+          countSpan.className = "trade-activity__count";
+          countSpan.textContent = `${summary.tradeCount}件`;
+          const pnlSpan = document.createElement("span");
+          pnlSpan.className = "trade-activity__pnl";
+          pnlSpan.textContent = formatCurrencyJPY(summary.netProfit);
+          activity.append(countSpan, pnlSpan);
+          td.appendChild(activity);
+        }
       }
       tr.appendChild(td);
     });
@@ -91,6 +133,10 @@ function renderCalendar(calendar) {
     ? calendar.weekdayLabels
     : [];
   const weekdayHeader = createWeekdayHeaderRow(weekdayLabels);
+  const tradeSummaries =
+    calendar && typeof calendar === "object" && calendar.tradeSummaries
+      ? calendar.tradeSummaries
+      : {};
 
   calendar.months.forEach((month) => {
     const firstChild = monthTemplate.content.firstElementChild;
@@ -111,7 +157,7 @@ function renderCalendar(calendar) {
       caption.textContent = month.title;
     }
     weekdayRow.appendChild(weekdayHeader.cloneNode(true));
-    renderWeeks(weeksBody, month.weeks);
+    renderWeeks(weeksBody, month.weeks, tradeSummaries);
 
     calendarElement.appendChild(monthNode);
     attachMonthInteractions(monthNode, month.title);

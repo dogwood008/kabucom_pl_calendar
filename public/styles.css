@@ -163,10 +163,16 @@ main {
 }
 
 .weeks td {
-  text-align: center;
-  padding: 0.6rem 0;
-  font-size: 1rem;
+  text-align: left;
+  padding: 0.45rem 0.6rem 0.75rem;
+  font-size: 0.95rem;
   border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  vertical-align: top;
+  min-height: 4.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  position: relative;
 }
 
 .weeks tr:last-child td {
@@ -178,9 +184,65 @@ main {
 }
 
 .weeks td.today {
-  background-color: rgba(59, 130, 246, 0.2);
+  box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+.weeks td.today .day-number {
+  color: #1d4ed8;
+}
+
+.day-number {
   font-weight: 600;
+  font-size: 1rem;
+}
+
+.trade-activity {
+  font-size: 0.8rem;
+  font-weight: 600;
+  background-color: rgba(15, 23, 42, 0.05);
   border-radius: 0.5rem;
+  padding: 0.2rem 0.45rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.trade-activity__pnl {
+  font-variant-numeric: tabular-nums;
+}
+
+.weeks td.has-trade {
+  background-color: rgba(15, 23, 42, 0.03);
+}
+
+.weeks td.has-trade.profit {
+  background-color: rgba(34, 197, 94, 0.18);
+}
+
+.weeks td.has-trade.loss {
+  background-color: rgba(248, 113, 113, 0.2);
+}
+
+.weeks td.has-trade.neutral {
+  background-color: rgba(59, 130, 246, 0.17);
+}
+
+.weeks td.has-trade.profit .trade-activity {
+  background-color: rgba(16, 185, 129, 0.25);
+  color: #065f46;
+}
+
+.weeks td.has-trade.loss .trade-activity {
+  background-color: rgba(248, 113, 113, 0.35);
+  color: #991b1b;
+}
+
+.weeks td.has-trade.neutral .trade-activity {
+  background-color: rgba(59, 130, 246, 0.25);
+  color: #1d4ed8;
 }
 
 @media (max-width: 600px) {
@@ -255,6 +317,7 @@ main {
 }
 
 .month-modal__calendar .weeks td {
-  font-size: 1.1rem;
-  padding: 0.75rem 0;
+  font-size: 1.05rem;
+  padding: 0.75rem 0.75rem 1rem;
+  min-height: 5rem;
 }
