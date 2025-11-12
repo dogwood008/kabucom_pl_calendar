@@ -279,6 +279,292 @@ function renderDayDetail(panel, isoDate, summary, trades) {
   panel.section.appendChild(list);
 }
 
+function collectMonthDates(month) {
+  const dates = [];
+  month.weeks.forEach((week) => {
+    week.forEach((day) => {
+      if (day) {
+        dates.push(day.isoDate);
+      }
+    });
+  });
+  return dates;
+}
+
+function buildCumulativeSeries(month, tradeSummaries) {
+  const dates = collectMonthDates(month);
+  const series = [];
+  let cumulative = 0;
+  dates.forEach((isoDate) => {
+    const summary = tradeSummaries[isoDate];
+    const value = summary ? summary.netProfit : 0;
+    cumulative += value;
+    series.push({
+      isoDate,
+      value,
+      cumulative,
+    });
+  });
+  return series;
+}
+
+function buildPolylinePoints(series, width, height, paddingX, paddingY) {
+  if (series.length === 0) {
+    return { pointsAttribute: "", coordinates: [], min: 0, max: 0 };
+  }
+  const values = series.map((item) => item.cumulative);
+  const min = Math.min(...values, 0);
+  const max = Math.max(...values, 0);
+  const range = Math.max(max - min, 1);
+  const chartWidth = width - paddingX * 2;
+  const chartHeight = height - paddingY * 2;
+  const step = series.length > 1 ? chartWidth / (series.length - 1) : 0;
+
+  const coordinates = series.map((point, index) => {
+    const x = paddingX + (series.length > 1 ? step * index : chartWidth / 2);
+    const normalized = (point.cumulative - min) / range;
+    const y = paddingY + chartHeight - normalized * chartHeight;
+    return { x, y };
+  });
+
+  const pointsAttribute = coordinates
+    .map((coord) => `${coord.x.toFixed(2)},${coord.y.toFixed(2)}`)
+    .join(" ");
+
+  return { pointsAttribute, coordinates, min, max };
+}
+
+function createZeroLine(series, width, height, paddingX, paddingY) {
+  const values = series.map((item) => item.cumulative);
+  const min = Math.min(...values, 0);
+  const max = Math.max(...values, 0);
+  if ((min <= 0 && max >= 0) || (min === 0 && max === 0)) {
+    const range = Math.max(max - min, 1);
+    const chartHeight = height - paddingY * 2;
+    const zeroNormalized = (0 - min) / range;
+    const zeroY = paddingY + chartHeight - zeroNormalized * chartHeight;
+    return {
+      x1: paddingX,
+      x2: width - paddingX,
+      y: zeroY,
+    };
+  }
+  return null;
+}
+
+function positionTooltip(tooltip, wrapperRect, x, y) {
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const offsetX = 12;
+  const offsetY = 12;
+  let left = x - wrapperRect.left + offsetX;
+  let top = y - wrapperRect.top - offsetY;
+
+  if (left + tooltipRect.width > wrapperRect.width) {
+    left = wrapperRect.width - tooltipRect.width - 8;
+  }
+  if (left < 0) {
+    left = 8;
+  }
+
+  if (top < 0) {
+    top = y - wrapperRect.top + offsetY;
+  }
+  tooltip.style.transform = `translate(${left}px, ${top}px)`;
+}
+
+function createCumulativeChart(month, tradeSummaries) {
+  const series = buildCumulativeSeries(month, tradeSummaries);
+  const container = document.createElement("figure");
+  container.className = "month-chart";
+
+  const title = document.createElement("figcaption");
+  title.className = "month-chart__title";
+  title.textContent = "積み上げ損益";
+  container.appendChild(title);
+
+  if (series.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "month-chart__empty";
+    empty.textContent = "この月の取引はありません。";
+    container.appendChild(empty);
+    return container;
+  }
+
+  const width = 120;
+  const height = 70;
+  const paddingX = 12;
+  const paddingY = 12;
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", `${month.title}の積み上げ損益推移`);
+
+  const baseline = document.createElementNS(ns, "rect");
+  baseline.setAttribute("x", "0");
+  baseline.setAttribute("y", "0");
+  baseline.setAttribute("width", String(width));
+  baseline.setAttribute("height", String(height));
+  baseline.setAttribute("fill", "transparent");
+  svg.appendChild(baseline);
+
+  const zeroLine = createZeroLine(series, width, height, paddingX, paddingY);
+  if (zeroLine) {
+    const line = document.createElementNS(ns, "line");
+    line.setAttribute("x1", zeroLine.x1.toString());
+    line.setAttribute("x2", zeroLine.x2.toString());
+    line.setAttribute("y1", zeroLine.y.toString());
+    line.setAttribute("y2", zeroLine.y.toString());
+    line.setAttribute("class", "month-chart__zero-line");
+    svg.appendChild(line);
+  }
+
+  const { pointsAttribute, coordinates, min, max } = buildPolylinePoints(
+    series,
+    width,
+    height,
+    paddingX,
+    paddingY,
+  );
+  const range = Math.max(max - min, 1);
+  const chartWidth = width - paddingX * 2;
+  const chartHeight = height - paddingY * 2;
+  const yAxis = document.createElementNS(ns, "line");
+  yAxis.setAttribute("x1", paddingX.toString());
+  yAxis.setAttribute("x2", paddingX.toString());
+  yAxis.setAttribute("y1", paddingY.toString());
+  yAxis.setAttribute("y2", (height - paddingY).toString());
+  yAxis.setAttribute("class", "month-chart__axis");
+  svg.appendChild(yAxis);
+
+  const xAxis = document.createElementNS(ns, "line");
+  xAxis.setAttribute("x1", paddingX.toString());
+  xAxis.setAttribute("x2", (width - paddingX).toString());
+  xAxis.setAttribute("y1", (height - paddingY).toString());
+  xAxis.setAttribute("y2", (height - paddingY).toString());
+  xAxis.setAttribute("class", "month-chart__axis");
+  svg.appendChild(xAxis);
+
+  const yGridSteps = 4;
+  for (let i = 0; i <= yGridSteps; i += 1) {
+    const value = min + (range / yGridSteps) * i;
+    const normalized = (value - min) / range;
+    const y = paddingY + chartHeight - normalized * chartHeight;
+    const gridLine = document.createElementNS(ns, "line");
+    gridLine.setAttribute("x1", paddingX.toString());
+    gridLine.setAttribute("x2", (width - paddingX).toString());
+    gridLine.setAttribute("y1", y.toString());
+    gridLine.setAttribute("y2", y.toString());
+    gridLine.setAttribute("class", "month-chart__grid month-chart__grid--y");
+    svg.appendChild(gridLine);
+
+    const label = document.createElementNS(ns, "text");
+    label.setAttribute("x", paddingX.toString());
+    label.setAttribute("y", (y - 1).toString());
+    label.setAttribute("class", "month-chart__axis-label");
+    label.textContent = `${Math.round(value).toLocaleString("ja-JP")}円`;
+    svg.appendChild(label);
+  }
+
+  const dayThreshold = 10;
+  series.forEach((point, index) => {
+    const isoDate = point.isoDate;
+    const day = Number.parseInt(isoDate.slice(-2), 10);
+    if (Number.isNaN(day) || day === 0 || day % dayThreshold !== 0) {
+      return;
+    }
+    const coord = coordinates[index];
+    if (!coord) {
+      return;
+    }
+    const gridLine = document.createElementNS(ns, "line");
+    gridLine.setAttribute("x1", coord.x.toString());
+    gridLine.setAttribute("x2", coord.x.toString());
+    gridLine.setAttribute("y1", paddingY.toString());
+    gridLine.setAttribute("y2", (height - paddingY).toString());
+    gridLine.setAttribute("class", "month-chart__grid month-chart__grid--x");
+    svg.appendChild(gridLine);
+
+    const label = document.createElementNS(ns, "text");
+    label.setAttribute("x", coord.x.toString());
+    label.setAttribute("y", (height - paddingY + 6).toString());
+    label.setAttribute("class", "month-chart__axis-label month-chart__axis-label--x");
+    label.textContent = `${day}日`;
+    svg.appendChild(label);
+  });
+
+  const polyline = document.createElementNS(ns, "polyline");
+  polyline.setAttribute("points", pointsAttribute);
+  polyline.setAttribute("class", "month-chart__line");
+  svg.appendChild(polyline);
+
+  const yUnitLabel = document.createElementNS(ns, "text");
+  const yUnitX = paddingX - 8;
+  const yUnitY = paddingY + chartHeight / 2;
+  yUnitLabel.setAttribute("x", yUnitX.toString());
+  yUnitLabel.setAttribute("y", yUnitY.toString());
+  yUnitLabel.setAttribute("class", "month-chart__axis-unit");
+  yUnitLabel.setAttribute("transform", `rotate(-90 ${yUnitX} ${yUnitY})`);
+  yUnitLabel.textContent = "円";
+  svg.appendChild(yUnitLabel);
+
+  const xUnitLabel = document.createElementNS(ns, "text");
+  xUnitLabel.setAttribute("x", (paddingX + chartWidth / 2).toString());
+  xUnitLabel.setAttribute("y", (height - paddingY + 14).toString());
+  xUnitLabel.setAttribute("class", "month-chart__axis-unit month-chart__axis-unit--x");
+  xUnitLabel.textContent = "日";
+  svg.appendChild(xUnitLabel);
+
+  const marker = document.createElementNS(ns, "circle");
+  marker.setAttribute("r", "1.8");
+  marker.setAttribute("class", "month-chart__marker");
+  svg.appendChild(marker);
+
+  const chartFigure = document.createElement("div");
+  chartFigure.className = "month-chart__figure";
+  chartFigure.appendChild(svg);
+  const tooltip = document.createElement("div");
+  tooltip.className = "month-chart__tooltip";
+  tooltip.hidden = true;
+  chartFigure.appendChild(tooltip);
+
+  const endValue = series[series.length - 1].cumulative;
+  const totalText = document.createElement("p");
+  totalText.className = "month-chart__total";
+  totalText.textContent = `累計: ${formatCurrencyJPY(endValue)}`;
+
+  chartFigure.addEventListener("pointermove", (event) => {
+    const rect = chartFigure.getBoundingClientRect();
+    const ratio = (event.clientX - rect.left) / rect.width;
+    const index = Math.min(
+      series.length - 1,
+      Math.max(0, Math.round((Number.isFinite(ratio) ? ratio : 0) * (series.length - 1))),
+    );
+    const coord = coordinates[index];
+    if (!coord) {
+      return;
+    }
+    marker.setAttribute("cx", coord.x.toString());
+    marker.setAttribute("cy", coord.y.toString());
+    marker.classList.add("is-visible");
+    tooltip.hidden = false;
+    tooltip.innerHTML = `
+      <strong>${formatJapaneseDate(series[index].isoDate)}</strong>
+      <span>日次: ${formatCurrencyJPY(series[index].value)}</span>
+      <span>累計: ${formatCurrencyJPY(series[index].cumulative)}</span>
+    `;
+    positionTooltip(tooltip, rect, event.clientX, event.clientY);
+  });
+
+  chartFigure.addEventListener("pointerleave", () => {
+    marker.classList.remove("is-visible");
+    tooltip.hidden = true;
+  });
+
+  container.append(chartFigure, totalText);
+  return container;
+}
+
 function openMonthModal(month, calendar, sourceNode) {
   if (!monthModal || !modalCalendarContainer) {
     return;
@@ -314,12 +600,13 @@ function openMonthModal(month, calendar, sourceNode) {
     tradeSummaries,
     onDaySelect: handleDaySelect,
   });
+  const chartNode = createCumulativeChart(month, tradeSummaries);
 
   const contentWrapper = document.createElement("div");
   contentWrapper.className = "month-modal__content";
   const calendarWrapper = document.createElement("div");
   calendarWrapper.className = "month-modal__calendar-wrapper";
-  calendarWrapper.appendChild(monthNode);
+  calendarWrapper.append(monthNode, chartNode);
   contentWrapper.append(calendarWrapper, detailPanel.section);
 
   modalCalendarContainer.replaceChildren(contentWrapper);
