@@ -65,9 +65,13 @@ function createServer() {
       return;
     }
 
-    const calendar = createYearCalendar(year);
-    res.json(calendar);
-  });
+    try {
+      const calendar = createYearCalendar(year);
+      res.json(calendar);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "カレンダー生成中にエラーが発生しました";
+      res.status(400).json({ error: message });
+    }
 
   app.get("*", (_, res) => {
     res.sendFile(path.join(publicDirectory, "index.html"));

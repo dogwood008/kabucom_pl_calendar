@@ -129,7 +129,13 @@ function initYearForm() {
 
 function init() {
   if (!calendarElement || !yearForm || !yearInput || !yearError || !monthTemplate) {
-    console.error("必要なUI要素が見つかりませんでした。");
+    console.error("必要なUI要素が見つかりませんでした:", {
+      calendarElement: !!calendarElement,
+      yearForm: !!yearForm,
+      yearInput: !!yearInput,
+      yearError: !!yearError,
+      monthTemplate: !!monthTemplate,
+    });
     return;
   }
 
