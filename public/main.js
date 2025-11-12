@@ -6,6 +6,7 @@ const monthTemplate = document.getElementById("monthTemplate");
 const monthModal = document.getElementById("monthModal");
 const modalCalendarContainer = document.getElementById("modalCalendarContainer");
 const modalCloseButton = document.getElementById("modalCloseButton");
+const yearChartTrigger = document.getElementById("yearChartTrigger");
 const yearChartModal = document.getElementById("yearChartModal");
 const yearChartContainer = document.getElementById("yearChartContainer");
 const yearChartCloseButton = document.getElementById("yearChartCloseButton");
@@ -686,20 +687,12 @@ function openMonthModal(month, calendar, sourceNode) {
     onDaySelect: handleDaySelect,
   });
   const chartNode = createCumulativeChart(month, tradeSummaries);
-  const yearChartButton = document.createElement("button");
-  yearChartButton.type = "button";
-  yearChartButton.className = "month-chart__year-button";
-  yearChartButton.textContent = `${calendar.year}年全体の推移を表示`;
-  yearChartButton.addEventListener("click", () => {
-    lastFocusedYearChartTrigger = yearChartButton;
-    openYearChartModal(calendar);
-  });
 
   const contentWrapper = document.createElement("div");
   contentWrapper.className = "month-modal__content";
   const calendarWrapper = document.createElement("div");
   calendarWrapper.className = "month-modal__calendar-wrapper";
-  calendarWrapper.append(monthNode, chartNode, yearChartButton);
+  calendarWrapper.append(monthNode, chartNode);
   contentWrapper.append(calendarWrapper, detailPanel.section);
 
   modalCalendarContainer.replaceChildren(contentWrapper);
@@ -820,6 +813,19 @@ function initYearForm() {
   });
 }
 
+function initYearChartTrigger() {
+  if (!yearChartTrigger) {
+    return;
+  }
+  yearChartTrigger.addEventListener("click", () => {
+    if (!latestCalendarPayload) {
+      return;
+    }
+    lastFocusedYearChartTrigger = yearChartTrigger;
+    openYearChartModal(latestCalendarPayload);
+  });
+}
+
 function initMonthModal() {
   if (!monthModal || !modalCalendarContainer) {
     return;
@@ -884,6 +890,7 @@ function init() {
     !monthModal ||
     !modalCalendarContainer ||
     !modalCloseButton ||
+    !yearChartTrigger ||
     !yearChartModal ||
     !yearChartContainer ||
     !yearChartCloseButton
@@ -897,6 +904,7 @@ function init() {
       monthModal: !!monthModal,
       modalCalendarContainer: !!modalCalendarContainer,
       modalCloseButton: !!modalCloseButton,
+      yearChartTrigger: !!yearChartTrigger,
       yearChartModal: !!yearChartModal,
       yearChartContainer: !!yearChartContainer,
       yearChartCloseButton: !!yearChartCloseButton,
@@ -905,6 +913,7 @@ function init() {
   }
 
   initYearForm();
+  initYearChartTrigger();
   initMonthModal();
   initYearChartModal();
   const initialYear = Number.parseInt(yearInput.value, 10);
