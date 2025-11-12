@@ -6,6 +6,9 @@ const monthTemplate = document.getElementById("monthTemplate");
 const monthModal = document.getElementById("monthModal");
 const modalCalendarContainer = document.getElementById("modalCalendarContainer");
 const modalCloseButton = document.getElementById("modalCloseButton");
+const yearChartModal = document.getElementById("yearChartModal");
+const yearChartContainer = document.getElementById("yearChartContainer");
+const yearChartCloseButton = document.getElementById("yearChartCloseButton");
 
 const RENDER_MODE = {
   GRID: "grid",
@@ -13,6 +16,7 @@ const RENDER_MODE = {
 };
 
 let lastFocusedMonth = null;
+let lastFocusedYearChartTrigger = null;
 let latestCalendarPayload = null;
 
 function fillWeekdayRow(row, labels) {
@@ -291,8 +295,15 @@ function collectMonthDates(month) {
   return dates;
 }
 
-function buildCumulativeSeries(month, tradeSummaries) {
-  const dates = collectMonthDates(month);
+function collectCalendarDates(calendar) {
+  const dates = [];
+  calendar.months.forEach((month) => {
+    dates.push(...collectMonthDates(month));
+  });
+  return dates;
+}
+
+function buildCumulativeSeriesFromDates(dates, tradeSummaries) {
   const series = [];
   let cumulative = 0;
   dates.forEach((isoDate) => {
@@ -306,6 +317,11 @@ function buildCumulativeSeries(month, tradeSummaries) {
     });
   });
   return series;
+}
+
+function buildCumulativeSeries(month, tradeSummaries) {
+  const dates = collectMonthDates(month);
+  return buildCumulativeSeriesFromDates(dates, tradeSummaries);
 }
 
 function buildPolylinePoints(series, width, height, paddingX, paddingY) {
@@ -372,33 +388,38 @@ function positionTooltip(tooltip, wrapperRect, x, y) {
   tooltip.style.transform = `translate(${left}px, ${top}px)`;
 }
 
-function createCumulativeChart(month, tradeSummaries) {
-  const series = buildCumulativeSeries(month, tradeSummaries);
+function createCumulativeChartFromSeries(series, options = {}) {
+  const {
+    title = "積み上げ損益",
+    ariaLabel = "積み上げ損益の推移",
+    emptyMessage = "この期間の取引はありません。",
+    width = 120,
+    height = 70,
+    paddingX = 12,
+    paddingY = 12,
+  } = options;
+
   const container = document.createElement("figure");
   container.className = "month-chart";
 
-  const title = document.createElement("figcaption");
-  title.className = "month-chart__title";
-  title.textContent = "積み上げ損益";
-  container.appendChild(title);
+  const caption = document.createElement("figcaption");
+  caption.className = "month-chart__title";
+  caption.textContent = title;
+  container.appendChild(caption);
 
   if (series.length === 0) {
     const empty = document.createElement("p");
     empty.className = "month-chart__empty";
-    empty.textContent = "この月の取引はありません。";
+    empty.textContent = emptyMessage;
     container.appendChild(empty);
     return container;
   }
 
-  const width = 120;
-  const height = 70;
-  const paddingX = 12;
-  const paddingY = 12;
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", `${month.title}の積み上げ損益推移`);
+  svg.setAttribute("aria-label", ariaLabel);
 
   const baseline = document.createElementNS(ns, "rect");
   baseline.setAttribute("x", "0");
@@ -429,6 +450,7 @@ function createCumulativeChart(month, tradeSummaries) {
   const range = Math.max(max - min, 1);
   const chartWidth = width - paddingX * 2;
   const chartHeight = height - paddingY * 2;
+
   const yAxis = document.createElementNS(ns, "line");
   yAxis.setAttribute("x1", paddingX.toString());
   yAxis.setAttribute("x2", paddingX.toString());
@@ -565,6 +587,69 @@ function createCumulativeChart(month, tradeSummaries) {
   return container;
 }
 
+function createCumulativeChart(month, tradeSummaries) {
+  const series = buildCumulativeSeries(month, tradeSummaries);
+  return createCumulativeChartFromSeries(series, {
+    title: "積み上げ損益",
+    ariaLabel: `${month.title}の積み上げ損益推移`,
+  });
+}
+
+function createYearlyCumulativeChart(calendar, tradeSummaries) {
+  const dates = collectCalendarDates(calendar);
+  const series = buildCumulativeSeriesFromDates(dates, tradeSummaries);
+  return createCumulativeChartFromSeries(series, {
+    title: `${calendar.year}年の積み上げ損益`,
+    ariaLabel: `${calendar.year}年の積み上げ損益推移`,
+    emptyMessage: `${calendar.year}年の取引はありません。`,
+    width: 220,
+    height: 110,
+    paddingX: 16,
+    paddingY: 16,
+  });
+}
+
+function openYearChartModal(calendar) {
+  if (!yearChartModal || !yearChartContainer) {
+    return;
+  }
+  const targetCalendar = calendar ?? latestCalendarPayload;
+  if (!targetCalendar) {
+    return;
+  }
+  const tradeSummaries =
+    targetCalendar && typeof targetCalendar === "object" && targetCalendar.tradeSummaries
+      ? targetCalendar.tradeSummaries
+      : {};
+  const chart = createYearlyCumulativeChart(targetCalendar, tradeSummaries);
+  yearChartContainer.replaceChildren(chart);
+  yearChartModal.classList.add("is-open");
+  yearChartModal.setAttribute("aria-hidden", "false");
+  if (!document.body.classList.contains("modal-open")) {
+    document.body.classList.add("modal-open");
+  }
+  yearChartCloseButton?.focus();
+}
+
+function closeYearChartModal(options = {}) {
+  const { restoreFocus = true } = options;
+  if (!yearChartModal || !yearChartContainer) {
+    return;
+  }
+  if (!yearChartModal.classList.contains("is-open")) {
+    return;
+  }
+  yearChartContainer.replaceChildren();
+  yearChartModal.classList.remove("is-open");
+  yearChartModal.setAttribute("aria-hidden", "true");
+  if (!monthModal || !monthModal.classList.contains("is-open")) {
+    document.body.classList.remove("modal-open");
+  }
+  if (restoreFocus && lastFocusedYearChartTrigger instanceof HTMLElement) {
+    lastFocusedYearChartTrigger.focus();
+  }
+}
+
 function openMonthModal(month, calendar, sourceNode) {
   if (!monthModal || !modalCalendarContainer) {
     return;
@@ -601,12 +686,20 @@ function openMonthModal(month, calendar, sourceNode) {
     onDaySelect: handleDaySelect,
   });
   const chartNode = createCumulativeChart(month, tradeSummaries);
+  const yearChartButton = document.createElement("button");
+  yearChartButton.type = "button";
+  yearChartButton.className = "month-chart__year-button";
+  yearChartButton.textContent = `${calendar.year}年全体の推移を表示`;
+  yearChartButton.addEventListener("click", () => {
+    lastFocusedYearChartTrigger = yearChartButton;
+    openYearChartModal(calendar);
+  });
 
   const contentWrapper = document.createElement("div");
   contentWrapper.className = "month-modal__content";
   const calendarWrapper = document.createElement("div");
   calendarWrapper.className = "month-modal__calendar-wrapper";
-  calendarWrapper.append(monthNode, chartNode);
+  calendarWrapper.append(monthNode, chartNode, yearChartButton);
   contentWrapper.append(calendarWrapper, detailPanel.section);
 
   modalCalendarContainer.replaceChildren(contentWrapper);
@@ -634,10 +727,13 @@ function closeMonthModal() {
   if (!monthModal.classList.contains("is-open")) {
     return;
   }
+  closeYearChartModal({ restoreFocus: false });
   modalCalendarContainer.replaceChildren();
   monthModal.classList.remove("is-open");
   monthModal.setAttribute("aria-hidden", "true");
-  document.body.classList.remove("modal-open");
+  if (!yearChartModal || !yearChartModal.classList.contains("is-open")) {
+    document.body.classList.remove("modal-open");
+  }
   if (lastFocusedMonth instanceof HTMLElement) {
     lastFocusedMonth.focus();
   }
@@ -742,8 +838,38 @@ function initMonthModal() {
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && monthModal.classList.contains("is-open")) {
+    if (
+      event.key === "Escape" &&
+      monthModal.classList.contains("is-open") &&
+      (!yearChartModal || !yearChartModal.classList.contains("is-open"))
+    ) {
       closeMonthModal();
+    }
+  });
+}
+
+function initYearChartModal() {
+  if (!yearChartModal || !yearChartContainer) {
+    return;
+  }
+
+  document.querySelectorAll("[data-year-chart-close]").forEach((element) => {
+    element.addEventListener("click", () => {
+      closeYearChartModal();
+    });
+  });
+
+  yearChartModal.addEventListener("click", (event) => {
+    if (event.target === yearChartModal) {
+      closeYearChartModal();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && yearChartModal.classList.contains("is-open")) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeYearChartModal();
     }
   });
 }
@@ -757,7 +883,10 @@ function init() {
     !monthTemplate ||
     !monthModal ||
     !modalCalendarContainer ||
-    !modalCloseButton
+    !modalCloseButton ||
+    !yearChartModal ||
+    !yearChartContainer ||
+    !yearChartCloseButton
   ) {
     console.error("必要なUI要素が見つかりませんでした:", {
       calendarElement: !!calendarElement,
@@ -768,12 +897,16 @@ function init() {
       monthModal: !!monthModal,
       modalCalendarContainer: !!modalCalendarContainer,
       modalCloseButton: !!modalCloseButton,
+      yearChartModal: !!yearChartModal,
+      yearChartContainer: !!yearChartContainer,
+      yearChartCloseButton: !!yearChartCloseButton,
     });
     return;
   }
 
   initYearForm();
   initMonthModal();
+  initYearChartModal();
   const initialYear = Number.parseInt(yearInput.value, 10);
   void loadCalendar(initialYear);
 }

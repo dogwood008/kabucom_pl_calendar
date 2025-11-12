@@ -50,6 +50,28 @@
       </div>
     </div>
 
+    <div
+      id="yearChartModal"
+      class="year-chart-modal"
+      aria-hidden="true"
+      role="dialog"
+      aria-label="年間損益グラフ"
+    >
+      <div class="year-chart-modal__backdrop" data-year-chart-close></div>
+      <div class="year-chart-modal__dialog">
+        <button
+          type="button"
+          id="yearChartCloseButton"
+          class="year-chart-modal__close"
+          aria-label="閉じる"
+          data-year-chart-close
+        >
+          ×
+        </button>
+        <div id="yearChartContainer" class="year-chart-modal__content"></div>
+      </div>
+    </div>
+
     <template id="monthTemplate">
       <article class="calendar-month">
         <header class="month-header"></header>

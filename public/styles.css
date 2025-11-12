@@ -333,6 +333,24 @@ main {
   font-variant-numeric: tabular-nums;
 }
 
+.month-chart__year-button {
+  align-self: flex-start;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.month-chart__year-button:hover,
+.month-chart__year-button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(59, 130, 246, 0.35);
+}
+
 .day-total {
   display: block;
   margin-top: 0.35rem;
@@ -434,6 +452,56 @@ main {
   min-height: 5rem;
 }
 
+.year-chart-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.year-chart-modal.is-open {
+  display: flex;
+}
+
+.year-chart-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(1px);
+}
+
+.year-chart-modal__dialog {
+  position: relative;
+  z-index: 1;
+  width: min(620px, 94vw);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  background: #ffffff;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.35);
+}
+
+.year-chart-modal__close {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  border: none;
+  background: rgba(15, 23, 42, 0.85);
+  color: #ffffff;
+  border-radius: 999px;
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.year-chart-modal__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .month-modal__content {
   display: flex;
   flex-direction: column;
@@ -450,6 +518,9 @@ main {
 .month-modal__calendar-wrapper {
   flex: 1 1 52%;
   min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .day-detail-panel {
