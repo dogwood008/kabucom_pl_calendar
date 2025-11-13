@@ -571,11 +571,14 @@ function createCumulativeChartFromSeries(series, options = {}) {
     marker.setAttribute("cy", coord.y.toString());
     marker.classList.add("is-visible");
     tooltip.hidden = false;
-    tooltip.innerHTML = `
-      <strong>${formatJapaneseDate(series[index].isoDate)}</strong>
-      <span>日次: ${formatCurrencyJPY(series[index].value)}</span>
-      <span>累計: ${formatCurrencyJPY(series[index].cumulative)}</span>
-    `;
+    tooltip.replaceChildren();
+    const tooltipDate = document.createElement("strong");
+    tooltipDate.textContent = formatJapaneseDate(series[index].isoDate);
+    const tooltipDaily = document.createElement("span");
+    tooltipDaily.textContent = `日次: ${formatCurrencyJPY(series[index].value)}`;
+    const tooltipCumulative = document.createElement("span");
+    tooltipCumulative.textContent = `累計: ${formatCurrencyJPY(series[index].cumulative)}`;
+    tooltip.append(tooltipDate, tooltipDaily, tooltipCumulative);
     positionTooltip(tooltip, rect, event.clientX, event.clientY);
   });
 
