@@ -10,11 +10,11 @@ const yearChartTrigger = document.getElementById("yearChartTrigger");
 const yearChartModal = document.getElementById("yearChartModal");
 const yearChartContainer = document.getElementById("yearChartContainer");
 const yearChartCloseButton = document.getElementById("yearChartCloseButton");
-const csvForm = document.getElementById("csvForm");
-const csvPathInput = document.getElementById("csvPathInput");
+const csvFileInput = document.getElementById("csvFileInput");
 const csvResetButton = document.getElementById("csvResetButton");
 const csvError = document.getElementById("csvError");
 const csvStatus = document.getElementById("csvStatus");
+const csvFileName = document.getElementById("csvFileName");
 
 const RENDER_MODE = {
   GRID: "grid",
@@ -42,10 +42,17 @@ function setCsvStatus(message) {
   }
 }
 
+function setCsvFileName(text) {
+  if (csvFileName) {
+    csvFileName.textContent = text ?? "";
+  }
+}
+
 let lastFocusedMonth = null;
 let lastFocusedYearChartTrigger = null;
 let latestCalendarPayload = null;
-let activeCsvPath = null;
+let activeCsvContent = null;
+let activeCsvLabel = null;
 
 function fillWeekdayRow(row, labels) {
   row.replaceChildren();
@@ -783,12 +790,7 @@ function renderCalendar(calendar) {
   });
 }
 
-async function fetchCalendar(year, options = {}) {
-  const params = new URLSearchParams({ year: String(year) });
-  if (options.csvPath) {
-    params.set("csvPath", options.csvPath);
-  }
-  const response = await fetch(`/api/calendar?${params.toString()}`);
+async function readCalendarResponse(response) {
   if (!response.ok) {
     let errorMessage = `カレンダーを取得できませんでした (${response.status})`;
     const bodyText = await response.text().catch(() => "");
@@ -813,9 +815,54 @@ async function fetchCalendar(year, options = {}) {
   return response.json();
 }
 
+async function postCalendarWithCsv(year, csvContent) {
+  const endpoints = ["/api/calendar/upload", "/api/calendar"];
+  const fallbackErrorMessage =
+    "CSVアップロードAPIが見つかりませんでした。サーバーを再起動し、最新のコードに更新してください。";
+  let lastError = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ year, csvContent }),
+      });
+
+      if (response.status === 404) {
+        lastError = new Error(fallbackErrorMessage);
+        continue;
+      }
+
+      return readCalendarResponse(response);
+    } catch (error) {
+      lastError = error;
+      break;
+    }
+  }
+
+  throw lastError ?? new Error(fallbackErrorMessage);
+}
+
+async function fetchCalendar(year, options = {}) {
+  if (options.csvContent) {
+    return postCalendarWithCsv(year, options.csvContent);
+  }
+
+  const params = new URLSearchParams({ year: String(year) });
+  if (options.csvPath) {
+    params.set("csvPath", options.csvPath);
+  }
+  const response = await fetch(`/api/calendar?${params.toString()}`);
+  return readCalendarResponse(response);
+}
+
 async function loadCalendar(year) {
   try {
-    const calendar = await fetchCalendar(year, { csvPath: activeCsvPath });
+    const requestOptions = activeCsvContent ? { csvContent: activeCsvContent } : {};
+    const calendar = await fetchCalendar(year, requestOptions);
     renderCalendar(calendar);
     return true;
   } catch (error) {
@@ -864,40 +911,58 @@ function initYearChartTrigger() {
   });
 }
 
-function initCsvForm() {
-  if (!csvForm || !csvPathInput) {
+function initCsvUpload() {
+  if (!csvFileInput || !csvResetButton) {
     return;
   }
 
   setCsvStatus("デフォルトのCSVを使用します。");
+  setCsvFileName("未選択");
 
-  csvForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const value = csvPathInput.value.trim();
-    if (!value) {
-      setCsvError("CSVファイルのパスを入力してください。");
+  csvFileInput.addEventListener("change", async () => {
+    const [file] = csvFileInput.files ?? [];
+    if (!file) {
+      setCsvFileName("未選択");
       return;
     }
+
     setCsvError("");
-    activeCsvPath = value;
-    setCsvStatus(`指定中: ${value}`);
-    const year = getEffectiveYearValue();
-    const success = await loadCalendar(year);
-    if (!success) {
-      setCsvError("CSVの読み込みに失敗しました。パスをご確認ください。");
+    setCsvStatus(`${file.name} を読み込み中です…`);
+    try {
+      const content = await file.text();
+      if (!content.trim()) {
+        setCsvError("CSVファイルにデータがありません。");
+        setCsvStatus("");
+        csvFileInput.value = "";
+        return;
+      }
+      activeCsvContent = content;
+      activeCsvLabel = file.name;
+      setCsvFileName(file.name);
+      setCsvStatus(`${file.name} を使用しています。`);
+      const year = getEffectiveYearValue();
+      const success = await loadCalendar(year);
+      if (!success) {
+        setCsvError("CSVの解析に失敗しました。ファイル内容をご確認ください。");
+      }
+    } catch (error) {
+      console.error(error);
+      setCsvError("CSVファイルの読み込みに失敗しました。");
+      setCsvStatus("");
+    } finally {
+      csvFileInput.value = "";
     }
   });
 
-  if (csvResetButton) {
-    csvResetButton.addEventListener("click", async () => {
-      csvPathInput.value = "";
-      activeCsvPath = null;
-      setCsvError("");
-      setCsvStatus("デフォルトのCSVを使用します。");
-      const year = getEffectiveYearValue();
-      await loadCalendar(year);
-    });
-  }
+  csvResetButton.addEventListener("click", async () => {
+    setCsvError("");
+    activeCsvContent = null;
+    activeCsvLabel = null;
+    setCsvFileName("未選択");
+    setCsvStatus("デフォルトのCSVを使用します。");
+    const year = getEffectiveYearValue();
+    await loadCalendar(year);
+  });
 }
 
 function initMonthModal() {
@@ -967,7 +1032,12 @@ function init() {
     !yearChartTrigger ||
     !yearChartModal ||
     !yearChartContainer ||
-    !yearChartCloseButton
+    !yearChartCloseButton ||
+    !csvFileInput ||
+    !csvResetButton ||
+    !csvStatus ||
+    !csvError ||
+    !csvFileName
   ) {
     console.error("必要なUI要素が見つかりませんでした:", {
       calendarElement: !!calendarElement,
@@ -982,12 +1052,17 @@ function init() {
       yearChartModal: !!yearChartModal,
       yearChartContainer: !!yearChartContainer,
       yearChartCloseButton: !!yearChartCloseButton,
+      csvFileInput: !!csvFileInput,
+      csvResetButton: !!csvResetButton,
+      csvStatus: !!csvStatus,
+      csvError: !!csvError,
+      csvFileName: !!csvFileName,
     });
     return;
   }
 
   initYearForm();
-  initCsvForm();
+  initCsvUpload();
   initYearChartTrigger();
   initMonthModal();
   initYearChartModal();

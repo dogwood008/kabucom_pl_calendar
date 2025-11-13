@@ -32,7 +32,9 @@ npm start
 
 ## 別CSVファイルの指定
 
-`/api/calendar` エンドポイントに `csvPath` クエリパラメータを付けると、デフォルトの `docs/dummy.csv` ではなく任意の CSV を読み込ませることができます。相対パスはリポジトリルートからの解釈です。
+トップ画面の「CSVファイルの指定」セクションからローカルCSVを選択すると、その内容がブラウザ経由でアップロードされ、`/api/calendar/upload` エンドポイントに送信されます。以降は同じファイルを保持したまま年を切り替えて再描画できます。
+
+API から直接切り替えたい場合は `/api/calendar` に `csvPath` クエリパラメータを付けて呼び出してください（相対パスはリポジトリルート基準）。
 
 ```bash
 curl "http://localhost:3000/api/calendar?year=2024&csvPath=docs/your_trades.csv"

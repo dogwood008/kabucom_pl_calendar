@@ -25,27 +25,24 @@
       <section class="upload-placeholder" aria-labelledby="csvSectionTitle">
         <h2 id="csvSectionTitle">CSVファイルの指定</h2>
         <p class="upload-placeholder__description">
-          デフォルトでは <code>docs/dummy.csv</code> を参照します。別のCSVを利用する場合は、リポジトリルートからの相対パスまたは絶対パスを入力してください。
+          デフォルトでは <code>docs/dummy.csv</code> を参照します。別のCSVを解析したい場合は、ファイル選択ボタンからアップロードしてください。
         </p>
-        <form id="csvForm" class="csv-form" novalidate>
-          <label class="csv-form__label" for="csvPathInput">CSVファイルのパス</label>
-          <div class="csv-form__controls">
-            <input
-              type="text"
-              id="csvPathInput"
-              name="csvPath"
-              placeholder="docs/your_trades.csv"
-              aria-describedby="csvHelp"
-            />
-            <button type="submit" class="csv-form__submit">指定</button>
-            <button type="button" id="csvResetButton" class="csv-form__reset">既定に戻す</button>
-          </div>
-          <p id="csvHelp" class="csv-form__help">
-            例: <code>docs/dummy.csv</code> / <code>/home/user/data.csv</code>
-          </p>
-          <p id="csvError" class="form-error" aria-live="polite"></p>
-          <p id="csvStatus" class="csv-form__status" aria-live="polite"></p>
-        </form>
+        <div class="csv-upload">
+          <input
+            type="file"
+            id="csvFileInput"
+            class="csv-upload__input"
+            accept=".csv,text/csv"
+            aria-describedby="csvStatus csvError"
+          />
+          <label for="csvFileInput" class="csv-upload__trigger" role="button" tabindex="0">
+            CSVファイルを選択
+          </label>
+          <span id="csvFileName" class="csv-upload__filename" aria-live="polite">未選択</span>
+          <button type="button" id="csvResetButton" class="csv-upload__reset">既定データに戻す</button>
+        </div>
+        <p id="csvStatus" class="csv-upload__status" aria-live="polite"></p>
+        <p id="csvError" class="form-error" aria-live="polite"></p>
       </section>
 
       <section id="calendar" class="calendar-grid" aria-live="polite"></section>

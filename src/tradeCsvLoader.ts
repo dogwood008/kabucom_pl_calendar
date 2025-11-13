@@ -21,6 +21,10 @@ export function createDefaultTradeCsvLoader(): TradeCsvLoader {
   return createKabucomCsvLoader();
 }
 
+export function createCsvLoaderFromContent(csvContent: string): TradeCsvLoader {
+  return new InlineCsvLoader(csvContent);
+}
+
 function resolveCsvPath(csvPath?: string): string {
   if (csvPath) {
     const trimmed = csvPath.trim();
@@ -37,6 +41,15 @@ class KabucomCsvLoader implements TradeCsvLoader {
   async loadRecords(): Promise<TradeRecord[]> {
     const content = await fs.readFile(this.csvPath, "utf-8");
     const rows = parseCsv(content);
+    return mapRowsToRecords(rows);
+  }
+}
+
+class InlineCsvLoader implements TradeCsvLoader {
+  constructor(private readonly csvContent: string) {}
+
+  async loadRecords(): Promise<TradeRecord[]> {
+    const rows = parseCsv(this.csvContent);
     return mapRowsToRecords(rows);
   }
 }

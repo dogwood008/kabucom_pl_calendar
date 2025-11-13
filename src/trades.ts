@@ -1,4 +1,9 @@
-import { createDefaultTradeCsvLoader, createKabucomCsvLoader, TradeCsvLoader } from "./tradeCsvLoader";
+import {
+  createCsvLoaderFromContent,
+  createDefaultTradeCsvLoader,
+  createKabucomCsvLoader,
+  TradeCsvLoader,
+} from "./tradeCsvLoader";
 import { DailyTradeSummary, TradeDataForYear, TradeDetail, TradeRecord } from "./tradeTypes";
 
 const DEFAULT_CACHE_KEY = "__DEFAULT__";
@@ -8,15 +13,19 @@ let customLoader: TradeCsvLoader | null = null;
 
 export interface TradeDataQueryOptions {
   csvPath?: string;
+  csvContent?: string;
 }
 
 export function setTradeCsvLoader(loader: TradeCsvLoader | null): void {
   customLoader = loader;
-  recordCache.delete(DEFAULT_CACHE_KEY);
-  cacheErrorKeys.delete(DEFAULT_CACHE_KEY);
+  recordCache.clear();
+  cacheErrorKeys.clear();
 }
 
-function getCacheKey(options?: TradeDataQueryOptions): string {
+function getCacheKey(options?: TradeDataQueryOptions): string | null {
+  if (options?.csvContent) {
+    return null;
+  }
   const csvPath = options?.csvPath?.trim();
   if (csvPath && csvPath.length > 0) {
     return `path:${csvPath}`;
@@ -33,6 +42,9 @@ function getActiveLoader(): TradeCsvLoader {
 }
 
 function getLoader(options?: TradeDataQueryOptions): TradeCsvLoader {
+  if (options?.csvContent) {
+    return createCsvLoaderFromContent(options.csvContent);
+  }
   if (options?.csvPath && options.csvPath.trim().length > 0) {
     return createKabucomCsvLoader({ csvPath: options.csvPath });
   }
@@ -41,22 +53,26 @@ function getLoader(options?: TradeDataQueryOptions): TradeCsvLoader {
 
 async function loadTradeRecords(options?: TradeDataQueryOptions): Promise<TradeRecord[]> {
   const cacheKey = getCacheKey(options);
-  if (recordCache.has(cacheKey)) {
+  if (cacheKey && recordCache.has(cacheKey)) {
     return recordCache.get(cacheKey) ?? [];
   }
   const loader = getLoader(options);
   try {
     const records = await loader.loadRecords();
-    recordCache.set(cacheKey, records);
+    if (cacheKey) {
+      recordCache.set(cacheKey, records);
+    }
     return records;
   } catch (error) {
-    if (!cacheErrorKeys.has(cacheKey)) {
+    if (cacheKey && !cacheErrorKeys.has(cacheKey)) {
       cacheErrorKeys.add(cacheKey);
       const message = error instanceof Error ? error.message : String(error);
       const loaderLabel = Object.getPrototypeOf(loader)?.constructor?.name ?? "TradeCsvLoader";
       console.warn(`取引CSVの読み込みに失敗しました (${loaderLabel}): ${message}`);
     }
-    recordCache.set(cacheKey, []);
+    if (cacheKey) {
+      recordCache.set(cacheKey, []);
+    }
     return [];
   }
 }
