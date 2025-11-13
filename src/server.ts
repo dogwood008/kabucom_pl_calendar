@@ -59,6 +59,43 @@ function handleCalendarError(res: express.Response, error: unknown) {
   res.status(400).json({ error: message });
 }
 
+function parseYearOrThrow(value: string | undefined, fallbackYear: number): number {
+  try {
+    return parseYear(value, fallbackYear);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "不正なリクエストです";
+    throw new ValidationError(message);
+  }
+}
+
+function readQueryParam(value: unknown, field: string): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (Array.isArray(value)) {
+    throw new ValidationError(`${field} パラメータは1つだけ指定してください`);
+  }
+  if (typeof value === "object" && value !== null) {
+    throw new ValidationError(`${field} パラメータの形式が不正です`);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+  return undefined;
+}
+
+function parseQueryRequest(
+  req: express.Request,
+): { year: number; options?: TradeDataQueryOptions } {
+  const now = new Date();
+  const yearParam = readQueryParam(req.query?.year, "year");
+  const csvPathParam = readQueryParam(req.query?.csvPath, "csvPath");
+  const year = parseYearOrThrow(yearParam, now.getFullYear());
+  const options = csvPathParam ? { csvPath: csvPathParam } : undefined;
+  return { year, options };
+}
+
 function createServer() {
   const app = express();
   const publicDirectory = resolvePublicDirectory();
@@ -67,45 +104,15 @@ function createServer() {
   app.use(express.static(publicDirectory));
 
   app.get("/api/calendar", async (req, res) => {
-    const now = new Date();
-    let year: number;
-    let csvPath: string | undefined;
-
     try {
-      const { year: yearQuery, csvPath: csvPathQuery } = req.query;
-
-      if (Array.isArray(yearQuery)) {
-        throw new Error("year パラメータは1つだけ指定してください");
-      }
-
-      if (typeof yearQuery === "object" && yearQuery !== null) {
-        throw new Error("year パラメータの形式が不正です");
-      }
-
-      const yearParam = typeof yearQuery === "string" ? yearQuery : undefined;
-      year = parseYear(yearParam, now.getFullYear());
-
-      if (Array.isArray(csvPathQuery)) {
-        throw new Error("csvPath パラメータは1つだけ指定してください");
-      }
-
-      if (typeof csvPathQuery === "object" && csvPathQuery !== null) {
-        throw new Error("csvPath パラメータの形式が不正です");
-      }
-
-      const csvCandidate = typeof csvPathQuery === "string" ? csvPathQuery.trim() : "";
-      csvPath = csvCandidate.length > 0 ? csvCandidate : undefined;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "不正なリクエストです";
-      res.status(400).json({ error: message });
-      return;
-    }
-
-    try {
-      const tradeDataOptions = csvPath ? { csvPath } : undefined;
-      const payload = await buildCalendarPayload(year, tradeDataOptions);
+      const { year, options } = parseQueryRequest(req);
+      const payload = await buildCalendarPayload(year, options);
       res.json(payload);
     } catch (error) {
+      if (error instanceof ValidationError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       handleCalendarError(res, error);
     }
   });
@@ -118,19 +125,21 @@ function createServer() {
     let csvContent: string | undefined;
     let csvPath: string | undefined;
 
-    const { year: yearBody, csvContent: content, csvPath: pathBody } = req.body ?? {};
+    const body = req.body;
+    if (!body || typeof body !== "object") {
+      throw new ValidationError("JSON ボディが必要です");
+    }
+    const { year: yearBody, csvContent: content, csvPath: pathBody } = body as Record<
+      string,
+      unknown
+    >;
     const yearParam =
       typeof yearBody === "number"
         ? String(yearBody)
         : typeof yearBody === "string"
           ? yearBody
           : undefined;
-    try {
-      year = parseYear(yearParam, now.getFullYear());
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "不正なリクエストです";
-      throw new ValidationError(message);
-    }
+    year = parseYearOrThrow(yearParam, now.getFullYear());
 
     if (typeof content === "string") {
       const trimmed = content.trim();
@@ -144,10 +153,13 @@ function createServer() {
       throw new ValidationError("csvContent もしくは csvPath を指定してください");
     }
 
-    return {
-      year,
-      options: csvContent ? { csvContent } : { csvPath: csvPath as string },
-    };
+    if (csvContent) {
+      return { year, options: { csvContent } };
+    }
+    if (csvPath) {
+      return { year, options: { csvPath } };
+    }
+    throw new ValidationError("csvContent もしくは csvPath を指定してください");
   }
 
   async function handleUpload(req: express.Request, res: express.Response) {

@@ -1,3 +1,5 @@
+import { fetchCalendarData } from "./calendarApi.js";
+
 const calendarElement = document.getElementById("calendar");
 const yearForm = document.getElementById("yearForm");
 const yearInput = document.getElementById("yearInput");
@@ -15,6 +17,7 @@ const csvResetButton = document.getElementById("csvResetButton");
 const csvError = document.getElementById("csvError");
 const csvStatus = document.getElementById("csvStatus");
 const csvFileName = document.getElementById("csvFileName");
+const csvFileTrigger = document.querySelector("[data-csv-trigger]");
 
 const RENDER_MODE = {
   GRID: "grid",
@@ -52,7 +55,6 @@ let lastFocusedMonth = null;
 let lastFocusedYearChartTrigger = null;
 let latestCalendarPayload = null;
 let activeCsvContent = null;
-let activeCsvLabel = null;
 
 function fillWeekdayRow(row, labels) {
   row.replaceChildren();
@@ -790,79 +792,10 @@ function renderCalendar(calendar) {
   });
 }
 
-async function readCalendarResponse(response) {
-  if (!response.ok) {
-    let errorMessage = `カレンダーを取得できませんでした (${response.status})`;
-    const bodyText = await response.text().catch(() => "");
-    if (bodyText) {
-      let errorDetail = bodyText;
-      try {
-        const data = JSON.parse(bodyText);
-        if (data && typeof data === "object") {
-          if (typeof data.error === "string" && data.error) {
-            errorDetail = data.error;
-          } else if (typeof data.message === "string" && data.message) {
-            errorDetail = data.message;
-          }
-        }
-      } catch {
-        // JSON に変換できない場合は生テキストを利用する
-      }
-      errorMessage += `: ${errorDetail}`;
-    }
-    throw new Error(errorMessage);
-  }
-  return response.json();
-}
-
-async function postCalendarWithCsv(year, csvContent) {
-  const endpoints = ["/api/calendar/upload", "/api/calendar"];
-  const fallbackErrorMessage =
-    "CSVアップロードAPIが見つかりませんでした。サーバーを再起動し、最新のコードに更新してください。";
-  let lastError = null;
-
-  for (const endpoint of endpoints) {
-    try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ year, csvContent }),
-      });
-
-      if (response.status === 404) {
-        lastError = new Error(fallbackErrorMessage);
-        continue;
-      }
-
-      return readCalendarResponse(response);
-    } catch (error) {
-      lastError = error;
-      break;
-    }
-  }
-
-  throw lastError ?? new Error(fallbackErrorMessage);
-}
-
-async function fetchCalendar(year, options = {}) {
-  if (options.csvContent) {
-    return postCalendarWithCsv(year, options.csvContent);
-  }
-
-  const params = new URLSearchParams({ year: String(year) });
-  if (options.csvPath) {
-    params.set("csvPath", options.csvPath);
-  }
-  const response = await fetch(`/api/calendar?${params.toString()}`);
-  return readCalendarResponse(response);
-}
-
 async function loadCalendar(year) {
   try {
     const requestOptions = activeCsvContent ? { csvContent: activeCsvContent } : {};
-    const calendar = await fetchCalendar(year, requestOptions);
+    const calendar = await fetchCalendarData(year, requestOptions);
     renderCalendar(calendar);
     return true;
   } catch (error) {
@@ -919,6 +852,15 @@ function initCsvUpload() {
   setCsvStatus("デフォルトのCSVを使用します。");
   setCsvFileName("未選択");
 
+  if (csvFileTrigger instanceof HTMLElement) {
+    csvFileTrigger.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        csvFileInput.click();
+      }
+    });
+  }
+
   csvFileInput.addEventListener("change", async () => {
     const [file] = csvFileInput.files ?? [];
     if (!file) {
@@ -937,7 +879,6 @@ function initCsvUpload() {
         return;
       }
       activeCsvContent = content;
-      activeCsvLabel = file.name;
       setCsvFileName(file.name);
       setCsvStatus(`${file.name} を使用しています。`);
       const year = getEffectiveYearValue();
@@ -957,7 +898,6 @@ function initCsvUpload() {
   csvResetButton.addEventListener("click", async () => {
     setCsvError("");
     activeCsvContent = null;
-    activeCsvLabel = null;
     setCsvFileName("未選択");
     setCsvStatus("デフォルトのCSVを使用します。");
     const year = getEffectiveYearValue();
@@ -1037,7 +977,8 @@ function init() {
     !csvResetButton ||
     !csvStatus ||
     !csvError ||
-    !csvFileName
+    !csvFileName ||
+    !csvFileTrigger
   ) {
     console.error("必要なUI要素が見つかりませんでした:", {
       calendarElement: !!calendarElement,
@@ -1057,6 +998,7 @@ function init() {
       csvStatus: !!csvStatus,
       csvError: !!csvError,
       csvFileName: !!csvFileName,
+      csvFileTrigger: !!csvFileTrigger,
     });
     return;
   }

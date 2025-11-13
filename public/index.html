@@ -35,7 +35,13 @@
             accept=".csv,text/csv"
             aria-describedby="csvStatus csvError"
           />
-          <label for="csvFileInput" class="csv-upload__trigger" role="button" tabindex="0">
+          <label
+            for="csvFileInput"
+            class="csv-upload__trigger"
+            role="button"
+            tabindex="0"
+            data-csv-trigger
+          >
             CSVファイルを選択
           </label>
           <span id="csvFileName" class="csv-upload__filename" aria-live="polite">未選択</span>
