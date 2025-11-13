@@ -127,8 +127,14 @@ function toIsoDate(dateString: string | undefined): string | null {
 function parseCsv(content: string): string[][] {
   const rows: string[][] = [];
   let currentRow: string[] = [];
-  let currentField = "";
+  let currentFieldChars: string[] = [];
   let inQuotes = false;
+
+  const flushField = (): string => {
+    const field = currentFieldChars.join("");
+    currentFieldChars = [];
+    return field;
+  };
 
   for (let i = 0; i < content.length; i += 1) {
     const char = content[i];
@@ -136,7 +142,7 @@ function parseCsv(content: string): string[][] {
 
     if (char === '"') {
       if (inQuotes && nextChar === '"') {
-        currentField += '"';
+        currentFieldChars.push('"');
         i += 1;
       } else {
         inQuotes = !inQuotes;
@@ -145,8 +151,7 @@ function parseCsv(content: string): string[][] {
     }
 
     if (char === "," && !inQuotes) {
-      currentRow.push(currentField);
-      currentField = "";
+      currentRow.push(flushField());
       continue;
     }
 
@@ -154,20 +159,20 @@ function parseCsv(content: string): string[][] {
       if (char === "\r" && nextChar === "\n") {
         i += 1;
       }
-      currentRow.push(currentField);
+      currentRow.push(flushField());
       if (currentRow.some((field) => field.trim().length > 0)) {
         rows.push(currentRow);
       }
       currentRow = [];
-      currentField = "";
       continue;
     }
 
-    currentField += char;
+    currentFieldChars.push(char);
   }
 
-  if (currentField.length > 0 || currentRow.length > 0) {
-    currentRow.push(currentField);
+  const remainingField = flushField();
+  if (remainingField.length > 0 || currentRow.length > 0) {
+    currentRow.push(remainingField);
     rows.push(currentRow);
   }
 
