@@ -1,6 +1,7 @@
 import express from "express";
 import path from "node:path";
 import { createYearCalendar, parseYear } from "./calendar";
+import { getTradeDataForYear } from "./trades";
 
 const parsedPort = Number.parseInt(process.env.PORT ?? "3000", 10);
 const DEFAULT_PORT =
@@ -42,7 +43,7 @@ function createServer() {
 
   app.use(express.static(publicDirectory));
 
-  app.get("/api/calendar", (req, res) => {
+  app.get("/api/calendar", async (req, res) => {
     const now = new Date();
     let year: number;
 
@@ -67,7 +68,12 @@ function createServer() {
 
     try {
       const calendar = createYearCalendar(year);
-      res.json(calendar);
+      const { summaries, tradesByDate } = await getTradeDataForYear(year);
+      res.json({
+        ...calendar,
+        tradeSummaries: summaries,
+        dailyTrades: tradesByDate,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "カレンダー生成中にエラーが発生しました";
       res.status(400).json({ error: message });
