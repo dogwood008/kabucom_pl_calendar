@@ -109,13 +109,70 @@ main {
   margin-top: 0;
 }
 
-.upload-placeholder input {
-  margin-top: 0.5rem;
+.upload-placeholder__description {
+  margin-bottom: 0.75rem;
+  color: #4b5563;
 }
 
-.upload-placeholder input[disabled] {
-  opacity: 0.6;
-  cursor: not-allowed;
+.csv-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.csv-form__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.csv-form input[type="text"] {
+  flex: 1;
+  min-width: 220px;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  font-size: 1rem;
+}
+
+.csv-form__submit,
+.csv-form__reset {
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.5rem;
+  border: none;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.csv-form__submit {
+  background-color: #10b981;
+  color: #ffffff;
+}
+
+.csv-form__reset {
+  background-color: #e5e7eb;
+  color: #1f2933;
+}
+
+.csv-form__submit:hover,
+.csv-form__submit:focus-visible,
+.csv-form__reset:hover,
+.csv-form__reset:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.15);
+}
+
+.csv-form__help {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.csv-form__status {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #047857;
 }
 
 .calendar-grid {

@@ -22,11 +22,30 @@
     </header>
 
     <main>
-      <section class="upload-placeholder">
-        <h2>CSVアップロード（準備中）</h2>
-        <p>近日中にCSVから予定を取り込めるようになります。</p>
-        <label class="upload-label" for="csvUpload">CSVファイル:</label>
-        <input type="file" id="csvUpload" accept=".csv" disabled />
+      <section class="upload-placeholder" aria-labelledby="csvSectionTitle">
+        <h2 id="csvSectionTitle">CSVファイルの指定</h2>
+        <p class="upload-placeholder__description">
+          デフォルトでは <code>docs/dummy.csv</code> を参照します。別のCSVを利用する場合は、リポジトリルートからの相対パスまたは絶対パスを入力してください。
+        </p>
+        <form id="csvForm" class="csv-form" novalidate>
+          <label class="csv-form__label" for="csvPathInput">CSVファイルのパス</label>
+          <div class="csv-form__controls">
+            <input
+              type="text"
+              id="csvPathInput"
+              name="csvPath"
+              placeholder="docs/your_trades.csv"
+              aria-describedby="csvHelp"
+            />
+            <button type="submit" class="csv-form__submit">指定</button>
+            <button type="button" id="csvResetButton" class="csv-form__reset">既定に戻す</button>
+          </div>
+          <p id="csvHelp" class="csv-form__help">
+            例: <code>docs/dummy.csv</code> / <code>/home/user/data.csv</code>
+          </p>
+          <p id="csvError" class="form-error" aria-live="polite"></p>
+          <p id="csvStatus" class="csv-form__status" aria-live="polite"></p>
+        </form>
       </section>
 
       <section id="calendar" class="calendar-grid" aria-live="polite"></section>

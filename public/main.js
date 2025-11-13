@@ -10,15 +10,42 @@ const yearChartTrigger = document.getElementById("yearChartTrigger");
 const yearChartModal = document.getElementById("yearChartModal");
 const yearChartContainer = document.getElementById("yearChartContainer");
 const yearChartCloseButton = document.getElementById("yearChartCloseButton");
+const csvForm = document.getElementById("csvForm");
+const csvPathInput = document.getElementById("csvPathInput");
+const csvResetButton = document.getElementById("csvResetButton");
+const csvError = document.getElementById("csvError");
+const csvStatus = document.getElementById("csvStatus");
 
 const RENDER_MODE = {
   GRID: "grid",
   MODAL: "modal",
 };
 
+function getEffectiveYearValue() {
+  const parsed = Number.parseInt(yearInput?.value ?? "", 10);
+  if (!Number.isNaN(parsed) && parsed > 0 && parsed <= 9999) {
+    return parsed;
+  }
+  const fallback = new Date().getFullYear();
+  return fallback;
+}
+
+function setCsvError(message) {
+  if (csvError) {
+    csvError.textContent = message ?? "";
+  }
+}
+
+function setCsvStatus(message) {
+  if (csvStatus) {
+    csvStatus.textContent = message ?? "";
+  }
+}
+
 let lastFocusedMonth = null;
 let lastFocusedYearChartTrigger = null;
 let latestCalendarPayload = null;
+let activeCsvPath = null;
 
 function fillWeekdayRow(row, labels) {
   row.replaceChildren();
@@ -756,8 +783,12 @@ function renderCalendar(calendar) {
   });
 }
 
-async function fetchCalendar(year) {
-  const response = await fetch(`/api/calendar?year=${encodeURIComponent(year)}`);
+async function fetchCalendar(year, options = {}) {
+  const params = new URLSearchParams({ year: String(year) });
+  if (options.csvPath) {
+    params.set("csvPath", options.csvPath);
+  }
+  const response = await fetch(`/api/calendar?${params.toString()}`);
   if (!response.ok) {
     let errorMessage = `カレンダーを取得できませんでした (${response.status})`;
     const bodyText = await response.text().catch(() => "");
@@ -784,8 +815,9 @@ async function fetchCalendar(year) {
 
 async function loadCalendar(year) {
   try {
-    const calendar = await fetchCalendar(year);
+    const calendar = await fetchCalendar(year, { csvPath: activeCsvPath });
     renderCalendar(calendar);
+    return true;
   } catch (error) {
     console.error(error);
     const message =
@@ -794,12 +826,15 @@ async function loadCalendar(year) {
     paragraph.className = "error";
     paragraph.textContent = message;
     calendarElement.replaceChildren(paragraph);
+    return false;
   }
 }
 
 function initYearForm() {
   const currentYear = new Date().getFullYear();
-  yearInput.value = String(currentYear);
+  if (!yearInput.value) {
+    yearInput.value = String(currentYear);
+  }
 
   yearForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -812,7 +847,7 @@ function initYearForm() {
     if (!isValid) {
       return;
     }
-    loadCalendar(year);
+    void loadCalendar(year);
   });
 }
 
@@ -827,6 +862,42 @@ function initYearChartTrigger() {
     lastFocusedYearChartTrigger = yearChartTrigger;
     openYearChartModal(latestCalendarPayload);
   });
+}
+
+function initCsvForm() {
+  if (!csvForm || !csvPathInput) {
+    return;
+  }
+
+  setCsvStatus("デフォルトのCSVを使用します。");
+
+  csvForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const value = csvPathInput.value.trim();
+    if (!value) {
+      setCsvError("CSVファイルのパスを入力してください。");
+      return;
+    }
+    setCsvError("");
+    activeCsvPath = value;
+    setCsvStatus(`指定中: ${value}`);
+    const year = getEffectiveYearValue();
+    const success = await loadCalendar(year);
+    if (!success) {
+      setCsvError("CSVの読み込みに失敗しました。パスをご確認ください。");
+    }
+  });
+
+  if (csvResetButton) {
+    csvResetButton.addEventListener("click", async () => {
+      csvPathInput.value = "";
+      activeCsvPath = null;
+      setCsvError("");
+      setCsvStatus("デフォルトのCSVを使用します。");
+      const year = getEffectiveYearValue();
+      await loadCalendar(year);
+    });
+  }
 }
 
 function initMonthModal() {
@@ -916,6 +987,7 @@ function init() {
   }
 
   initYearForm();
+  initCsvForm();
   initYearChartTrigger();
   initMonthModal();
   initYearChartModal();
