@@ -28,7 +28,7 @@ async function readCalendarResponse(response) {
 async function postCalendarWithCsv(year, csvContent) {
   let lastError = null;
   const fallbackErrorMessage =
-    "CSVアップロードAPIが見つかりませんでした。サーバーを最新のコードで再起動してください。";
+    "CSVアップロードAPIを呼び出せませんでした。サーバーを最新のコードで再起動してください。";
 
   for (const endpoint of UPLOAD_ENDPOINTS) {
     try {
@@ -40,15 +40,20 @@ async function postCalendarWithCsv(year, csvContent) {
         body: JSON.stringify({ year, csvContent }),
       });
 
-      if (response.status === 404) {
-        lastError = new Error(fallbackErrorMessage);
+      if (!response.ok) {
+        let errorMessage = `${endpoint} の呼び出しに失敗しました (${response.status})`;
+        const bodyText = await response.text().catch(() => "");
+        if (bodyText) {
+          errorMessage += `: ${bodyText}`;
+        }
+        lastError = new Error(errorMessage);
         continue;
       }
 
       return readCalendarResponse(response);
     } catch (error) {
-      lastError = error;
-      break;
+      lastError = error instanceof Error ? error : new Error(String(error));
+      continue;
     }
   }
 
