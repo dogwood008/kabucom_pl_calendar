@@ -117,7 +117,7 @@ function parseCsv(content: string): string[][] {
   let inQuotes = false;
 
   for (let i = 0; i < content.length; i += 1) {
-    const char = content[i]!;
+    const char = content[i];
     const nextChar = content[i + 1];
 
     if (char === '"') {
