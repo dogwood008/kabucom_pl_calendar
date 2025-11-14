@@ -7,7 +7,7 @@ export interface TradeCsvLoader {
 }
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
-const DEFAULT_CSV_RELATIVE_PATH = ["docs", "dummy.csv"];
+const DEFAULT_CSV_RELATIVE_PATH = ["docs", "dummy_kabucom.csv"];
 
 export interface KabucomCsvLoaderOptions {
   csvPath?: string;

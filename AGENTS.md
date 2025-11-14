@@ -4,7 +4,7 @@
 - `src/` contains all TypeScript sources (`server.ts` hosts Express wiring, `calendar.ts` handles date math); keep new modules colocated with their domain logic.
 - `public/` serves the static calendar UI that Express returns for every route; modify assets here and keep `index.html` self-contained.
 - `dist/` is generated output from `npm run build`; never edit it directly—treat it as disposable.
-- `docs/dummy.csv` provides the mock trade dataset that powers day-level P/L overlays; keep similar CSVs in `docs/`.
+- `docs/dummy_kabucom.csv` provides the mock trade dataset that powers day-level P/L overlays; keep similar CSVs in `docs/`.
 - Root configs: `package.json` defines scripts, `tsconfig.json` governs compilation targets, and `.env` files (if added) should be listed in `.gitignore`.
 
 ## UI & Feature Notes
