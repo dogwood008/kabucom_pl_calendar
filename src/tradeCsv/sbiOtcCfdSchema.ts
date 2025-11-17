@@ -26,11 +26,7 @@ export const sbiOtcCfdSchema: TradeCsvSchema = {
 
     const netProfitFromComponents = grossProfit + interest + priceAdjustment + funding;
     const netProfit =
-      settlementAmount !== 0
-        ? settlementAmount
-        : netProfitFromComponents !== 0
-          ? netProfitFromComponents
-          : 0;
+      settlementAmount !== 0 ? settlementAmount : netProfitFromComponents;
 
     return {
       isoDate: dateTimeParts.isoDate,
