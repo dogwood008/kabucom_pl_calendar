@@ -11,17 +11,17 @@ export interface TradeCsvLoader {
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const DEFAULT_CSV_RELATIVE_PATH = ["docs", "dummy_kabucom.csv"];
 
-export interface KabucomCsvLoaderOptions {
+export interface FileCsvLoaderOptions {
   csvPath?: string;
 }
 
-export function createKabucomCsvLoader(options: KabucomCsvLoaderOptions = {}): TradeCsvLoader {
+export function createFileCsvLoader(options: FileCsvLoaderOptions = {}): TradeCsvLoader {
   const resolvedPath = resolveCsvPath(options.csvPath);
   return new FileCsvLoader(resolvedPath);
 }
 
 export function createDefaultTradeCsvLoader(): TradeCsvLoader {
-  return createKabucomCsvLoader();
+  return createFileCsvLoader();
 }
 
 export function createCsvLoaderFromContent(csvContent: string): TradeCsvLoader {

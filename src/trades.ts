@@ -1,7 +1,7 @@
 import {
   createCsvLoaderFromContent,
   createDefaultTradeCsvLoader,
-  createKabucomCsvLoader,
+  createFileCsvLoader,
   TradeCsvLoader,
 } from "./tradeCsvLoader";
 import { DailyTradeSummary, TradeDataForYear, TradeDetail, TradeRecord } from "./tradeTypes";
@@ -46,7 +46,7 @@ function getLoader(options?: TradeDataQueryOptions): TradeCsvLoader {
     return createCsvLoaderFromContent(options.csvContent);
   }
   if (options?.csvPath && options.csvPath.trim().length > 0) {
-    return createKabucomCsvLoader({ csvPath: options.csvPath });
+    return createFileCsvLoader({ csvPath: options.csvPath });
   }
   return getActiveLoader();
 }
