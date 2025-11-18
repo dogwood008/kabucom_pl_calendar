@@ -35,6 +35,8 @@ const ZOOM_CHART_DIMENSIONS = {
   paddingY: 24,
 };
 
+const DAILY_CHART_TICK_RATIOS = [0.25, 0.5, 0.75];
+
 function getEffectiveYearValue() {
   const parsed = Number.parseInt(yearInput?.value ?? "", 10);
   if (!Number.isNaN(parsed) && parsed > 0 && parsed <= 9999) {
@@ -838,7 +840,7 @@ function createDailyChartTicks({ series, coordinates, xValues, xMin, xMax }) {
   }
   const indices = new Set([0, series.length - 1]);
   if (Array.isArray(xValues) && xValues.length === series.length && xMax > xMin) {
-    [0.25, 0.5, 0.75].forEach((ratio) => {
+    DAILY_CHART_TICK_RATIOS.forEach((ratio) => {
       const target = xMin + (xMax - xMin) * ratio;
       let nearestIndex = 0;
       let smallestDiff = Number.POSITIVE_INFINITY;
