@@ -12,6 +12,10 @@ const yearChartTrigger = document.getElementById("yearChartTrigger");
 const yearChartModal = document.getElementById("yearChartModal");
 const yearChartContainer = document.getElementById("yearChartContainer");
 const yearChartCloseButton = document.getElementById("yearChartCloseButton");
+const chartZoomModal = document.getElementById("chartZoomModal");
+const chartZoomContainer = document.getElementById("chartZoomContainer");
+const chartZoomCloseButton = document.getElementById("chartZoomCloseButton");
+const chartZoomTitle = document.getElementById("chartZoomTitle");
 const csvFileInput = document.getElementById("csvFileInput");
 const csvResetButton = document.getElementById("csvResetButton");
 const csvError = document.getElementById("csvError");
@@ -23,6 +27,15 @@ const RENDER_MODE = {
   GRID: "grid",
   MODAL: "modal",
 };
+
+const ZOOM_CHART_DIMENSIONS = {
+  width: 420,
+  height: 220,
+  paddingX: 24,
+  paddingY: 24,
+};
+
+const DAILY_CHART_TICK_RATIOS = [0.25, 0.5, 0.75];
 
 function getEffectiveYearValue() {
   const parsed = Number.parseInt(yearInput?.value ?? "", 10);
@@ -53,6 +66,7 @@ function setCsvFileName(text) {
 
 let lastFocusedMonth = null;
 let lastFocusedYearChartTrigger = null;
+let lastFocusedChartZoomTrigger = null;
 let latestCalendarPayload = null;
 let activeCsvContent = null;
 
@@ -340,6 +354,19 @@ function collectCalendarDates(calendar) {
   return dates;
 }
 
+function parseMinutesFromTime(isoTime) {
+  if (typeof isoTime !== "string") {
+    return undefined;
+  }
+  const [hoursPart, minutesPart] = isoTime.split(":");
+  const hours = Number.parseInt(hoursPart ?? "", 10);
+  const minutes = Number.parseInt(minutesPart ?? "", 10);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return undefined;
+  }
+  return hours * 60 + minutes;
+}
+
 function buildCumulativeSeriesFromDates(dates, tradeSummaries) {
   const series = [];
   let cumulative = 0;
@@ -361,20 +388,73 @@ function buildCumulativeSeries(month, tradeSummaries) {
   return buildCumulativeSeriesFromDates(dates, tradeSummaries);
 }
 
-function buildPolylinePoints(series, width, height, paddingX, paddingY) {
-  if (series.length === 0) {
-    return { pointsAttribute: "", coordinates: [], min: 0, max: 0 };
+function buildDailyCumulativeSeries(isoDate, trades) {
+  if (!isoDate || !Array.isArray(trades) || trades.length === 0) {
+    return [];
   }
+  let cumulative = 0;
+  const sortedTrades = [...trades].sort((a, b) => {
+    const timeA =
+      a?.isoTime ??
+      (typeof a?.isoDateTime === "string" ? a.isoDateTime.split("T")[1] : undefined) ??
+      "00:00:00";
+    const timeB =
+      b?.isoTime ??
+      (typeof b?.isoDateTime === "string" ? b.isoDateTime.split("T")[1] : undefined) ??
+      "00:00:00";
+    return timeA.localeCompare(timeB);
+  });
+  return sortedTrades.map((trade, index) => {
+    const net = typeof trade?.netProfit === "number" ? trade.netProfit : 0;
+    cumulative += net;
+    const isoTime =
+      trade?.isoTime ??
+      (typeof trade?.isoDateTime === "string"
+        ? trade.isoDateTime.split("T")[1]?.slice(0, 5)
+        : undefined);
+    return {
+      isoDate,
+      isoDateTime: trade?.isoDateTime ?? `${isoDate}T${isoTime ?? "00:00"}`,
+      isoTime: isoTime ?? "--:--",
+      value: net,
+      cumulative,
+      minutesFromMidnight: parseMinutesFromTime(isoTime),
+      index,
+    };
+  });
+}
+
+function buildPolylinePoints(series, width, height, paddingX, paddingY, options = {}) {
+  if (series.length === 0) {
+    return { pointsAttribute: "", coordinates: [], min: 0, max: 0, xValues: [], xMin: 0, xMax: 0 };
+  }
+  const { xAccessor } = options;
   const values = series.map((item) => item.cumulative);
   const min = Math.min(...values, 0);
   const max = Math.max(...values, 0);
   const range = Math.max(max - min, 1);
   const chartWidth = width - paddingX * 2;
   const chartHeight = height - paddingY * 2;
-  const step = series.length > 1 ? chartWidth / (series.length - 1) : 0;
+  const xValues =
+    typeof xAccessor === "function"
+      ? series.map((point, index) => {
+          const resolved = xAccessor(point, index);
+          return typeof resolved === "number" && Number.isFinite(resolved) ? resolved : index;
+        })
+      : null;
+  const xMin = xValues ? Math.min(...xValues) : 0;
+  const xMax = xValues ? Math.max(...xValues) : series.length - 1;
+  const xRange = Math.max(xMax - xMin, 1);
 
   const coordinates = series.map((point, index) => {
-    const x = paddingX + (series.length > 1 ? step * index : chartWidth / 2);
+    const progress = xValues
+      ? xRange === 0
+        ? 0.5
+        : (xValues[index] - xMin) / xRange
+      : series.length > 1
+        ? index / (series.length - 1)
+        : 0.5;
+    const x = paddingX + progress * chartWidth;
     const normalized = (point.cumulative - min) / range;
     const y = paddingY + chartHeight - normalized * chartHeight;
     return { x, y };
@@ -384,7 +464,7 @@ function buildPolylinePoints(series, width, height, paddingX, paddingY) {
     .map((coord) => `${coord.x.toFixed(2)},${coord.y.toFixed(2)}`)
     .join(" ");
 
-  return { pointsAttribute, coordinates, min, max };
+  return { pointsAttribute, coordinates, min, max, xValues: xValues ?? [], xMin, xMax };
 }
 
 function createZeroLine(series, width, height, paddingX, paddingY) {
@@ -403,6 +483,41 @@ function createZeroLine(series, width, height, paddingX, paddingY) {
     };
   }
   return null;
+}
+
+function createDefaultMonthChartTicks({ series, coordinates, height, paddingY }) {
+  const dayThreshold = 10;
+  return series
+    .map((point, index) => {
+      const day = Number.parseInt(point?.isoDate?.slice(-2) ?? "", 10);
+      if (Number.isNaN(day) || day === 0 || day % dayThreshold !== 0) {
+        return null;
+      }
+      const coord = coordinates[index];
+      if (!coord) {
+        return null;
+      }
+      return {
+        x: coord.x,
+        label: `${day}日`,
+        height,
+        paddingY,
+      };
+    })
+    .filter(Boolean);
+}
+
+function formatDefaultTooltipContent(point) {
+  if (!point) {
+    return null;
+  }
+  return {
+    title: formatJapaneseDate(point.isoDate),
+    lines: [
+      `日次: ${formatCurrencyJPY(point.value)}`,
+      `累計: ${formatCurrencyJPY(point.cumulative)}`,
+    ],
+  };
 }
 
 function positionTooltip(tooltip, wrapperRect, x, y) {
@@ -425,15 +540,57 @@ function positionTooltip(tooltip, wrapperRect, x, y) {
   tooltip.style.transform = `translate(${left}px, ${top}px)`;
 }
 
+function enableChartZoom(chartNode, createZoomedChart, options = {}) {
+  if (
+    !chartNode ||
+    typeof chartNode !== "object" ||
+    typeof createZoomedChart !== "function" ||
+    !chartZoomModal ||
+    !chartZoomContainer
+  ) {
+    return;
+  }
+  const providedLabel = options.label;
+  const fallbackLabel =
+    chartNode.querySelector(".month-chart__title")?.textContent ?? "グラフ";
+  const label = providedLabel ?? fallbackLabel;
+  const zoomTitle = `${label}の拡大表示`;
+  const openZoom = () => {
+    const zoomedChart = createZoomedChart();
+    if (!(zoomedChart instanceof HTMLElement)) {
+      return;
+    }
+    lastFocusedChartZoomTrigger = chartNode;
+    openChartZoomModal(zoomedChart, { title: zoomTitle });
+  };
+  chartNode.classList.add("month-chart--zoomable");
+  chartNode.tabIndex = 0;
+  chartNode.setAttribute("role", "button");
+  chartNode.setAttribute("aria-label", `${label}を拡大表示`);
+  chartNode.addEventListener("click", () => {
+    openZoom();
+  });
+  chartNode.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openZoom();
+    }
+  });
+}
+
 function createCumulativeChartFromSeries(series, options = {}) {
   const {
-    title = "積み上げ損益",
-    ariaLabel = "積み上げ損益の推移",
+    title = "累積損益",
+    ariaLabel = "累積損益の推移",
     emptyMessage = "この期間の取引はありません。",
     width = 120,
     height = 70,
     paddingX = 12,
     paddingY = 12,
+    xAxisUnitLabel = "日",
+    xAxisTickGenerator,
+    tooltipFormatter,
+    xAccessor,
   } = options;
 
   const container = document.createElement("figure");
@@ -477,12 +634,13 @@ function createCumulativeChartFromSeries(series, options = {}) {
     svg.appendChild(line);
   }
 
-  const { pointsAttribute, coordinates, min, max } = buildPolylinePoints(
+  const { pointsAttribute, coordinates, min, max, xValues, xMin, xMax } = buildPolylinePoints(
     series,
     width,
     height,
     paddingX,
     paddingY,
+    { xAccessor },
   );
   const range = Math.max(max - min, 1);
   const chartWidth = width - paddingX * 2;
@@ -525,30 +683,37 @@ function createCumulativeChartFromSeries(series, options = {}) {
     svg.appendChild(label);
   }
 
-  const dayThreshold = 10;
-  series.forEach((point, index) => {
-    const isoDate = point.isoDate;
-    const day = Number.parseInt(isoDate.slice(-2), 10);
-    if (Number.isNaN(day) || day === 0 || day % dayThreshold !== 0) {
-      return;
-    }
-    const coord = coordinates[index];
-    if (!coord) {
+  const resolvedTickGenerator =
+    typeof xAxisTickGenerator === "function"
+      ? xAxisTickGenerator
+      : createDefaultMonthChartTicks;
+  const ticks = resolvedTickGenerator({
+    series,
+    coordinates,
+    height,
+    paddingY,
+    xValues,
+    xMin,
+    xMax,
+  });
+
+  ticks.forEach((tick) => {
+    if (!tick || typeof tick.x !== "number" || Number.isNaN(tick.x) || !tick.label) {
       return;
     }
     const gridLine = document.createElementNS(ns, "line");
-    gridLine.setAttribute("x1", coord.x.toString());
-    gridLine.setAttribute("x2", coord.x.toString());
+    gridLine.setAttribute("x1", tick.x.toString());
+    gridLine.setAttribute("x2", tick.x.toString());
     gridLine.setAttribute("y1", paddingY.toString());
     gridLine.setAttribute("y2", (height - paddingY).toString());
     gridLine.setAttribute("class", "month-chart__grid month-chart__grid--x");
     svg.appendChild(gridLine);
 
     const label = document.createElementNS(ns, "text");
-    label.setAttribute("x", coord.x.toString());
+    label.setAttribute("x", tick.x.toString());
     label.setAttribute("y", (height - paddingY + 6).toString());
     label.setAttribute("class", "month-chart__axis-label month-chart__axis-label--x");
-    label.textContent = `${day}日`;
+    label.textContent = tick.label;
     svg.appendChild(label);
   });
 
@@ -571,7 +736,7 @@ function createCumulativeChartFromSeries(series, options = {}) {
   xUnitLabel.setAttribute("x", (paddingX + chartWidth / 2).toString());
   xUnitLabel.setAttribute("y", (height - paddingY + 14).toString());
   xUnitLabel.setAttribute("class", "month-chart__axis-unit month-chart__axis-unit--x");
-  xUnitLabel.textContent = "日";
+  xUnitLabel.textContent = xAxisUnitLabel;
   svg.appendChild(xUnitLabel);
 
   const marker = document.createElementNS(ns, "circle");
@@ -592,29 +757,62 @@ function createCumulativeChartFromSeries(series, options = {}) {
   totalText.className = "month-chart__total";
   totalText.textContent = `累計: ${formatCurrencyJPY(endValue)}`;
 
+  const resolveTooltip =
+    typeof tooltipFormatter === "function" ? tooltipFormatter : formatDefaultTooltipContent;
+
   chartFigure.addEventListener("pointermove", (event) => {
+    if (!Array.isArray(coordinates) || coordinates.length === 0) {
+      return;
+    }
     const rect = chartFigure.getBoundingClientRect();
     const ratio = (event.clientX - rect.left) / rect.width;
-    const index = Math.min(
-      series.length - 1,
-      Math.max(0, Math.round((Number.isFinite(ratio) ? ratio : 0) * (series.length - 1))),
-    );
-    const coord = coordinates[index];
+    const normalizedRatio = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
+    const pointerX = normalizedRatio * width;
+    let left = 0;
+    let right = coordinates.length - 1;
+    while (left < right) {
+      const mid = Math.floor((left + right) / 2);
+      if (coordinates[mid].x < pointerX) {
+        left = mid + 1;
+      } else {
+        right = mid;
+      }
+    }
+    let closestIndex = left;
+    if (closestIndex > 0) {
+      const prevIndex = closestIndex - 1;
+      const prevDistance = Math.abs(coordinates[prevIndex].x - pointerX);
+      const currentDistance = Math.abs(coordinates[closestIndex].x - pointerX);
+      if (prevDistance <= currentDistance) {
+        closestIndex = prevIndex;
+      }
+    }
+    const coord = coordinates[closestIndex];
     if (!coord) {
       return;
     }
     marker.setAttribute("cx", coord.x.toString());
     marker.setAttribute("cy", coord.y.toString());
     marker.classList.add("is-visible");
-    tooltip.hidden = false;
+    const tooltipData = resolveTooltip(series[closestIndex], closestIndex, series);
     tooltip.replaceChildren();
-    const tooltipDate = document.createElement("strong");
-    tooltipDate.textContent = formatJapaneseDate(series[index].isoDate);
-    const tooltipDaily = document.createElement("span");
-    tooltipDaily.textContent = `日次: ${formatCurrencyJPY(series[index].value)}`;
-    const tooltipCumulative = document.createElement("span");
-    tooltipCumulative.textContent = `累計: ${formatCurrencyJPY(series[index].cumulative)}`;
-    tooltip.append(tooltipDate, tooltipDaily, tooltipCumulative);
+    if (tooltipData?.title) {
+      const tooltipDate = document.createElement("strong");
+      tooltipDate.textContent = tooltipData.title;
+      tooltip.appendChild(tooltipDate);
+    }
+    if (Array.isArray(tooltipData?.lines)) {
+      tooltipData.lines.forEach((line) => {
+        const span = document.createElement("span");
+        span.textContent = line;
+        tooltip.appendChild(span);
+      });
+    }
+    if (!tooltip.hasChildNodes()) {
+      tooltip.hidden = true;
+      return;
+    }
+    tooltip.hidden = false;
     positionTooltip(tooltip, rect, event.clientX, event.clientY);
   });
 
@@ -627,11 +825,92 @@ function createCumulativeChartFromSeries(series, options = {}) {
   return container;
 }
 
-function createCumulativeChart(month, tradeSummaries) {
+function createCumulativeChart(month, tradeSummaries, options = {}) {
   const series = buildCumulativeSeries(month, tradeSummaries);
   return createCumulativeChartFromSeries(series, {
-    title: "積み上げ損益",
-    ariaLabel: `${month.title}の積み上げ損益推移`,
+    title: "月次累積グラフ",
+    ariaLabel: `${month.title}の月次累積グラフの推移`,
+    ...options,
+  });
+}
+
+function createDailyChartTicks({ series, coordinates, xValues, xMin, xMax }) {
+  if (!Array.isArray(series) || series.length === 0) {
+    return [];
+  }
+  const indices = new Set([0, series.length - 1]);
+  if (Array.isArray(xValues) && xValues.length === series.length && xMax > xMin) {
+    DAILY_CHART_TICK_RATIOS.forEach((ratio) => {
+      const target = xMin + (xMax - xMin) * ratio;
+      let nearestIndex = 0;
+      let smallestDiff = Number.POSITIVE_INFINITY;
+      xValues.forEach((value, idx) => {
+        if (typeof value !== "number") {
+          return;
+        }
+        const diff = Math.abs(value - target);
+        if (diff < smallestDiff) {
+          smallestDiff = diff;
+          nearestIndex = idx;
+        }
+      });
+      indices.add(nearestIndex);
+    });
+  } else if (series.length > 2) {
+    indices.add(Math.floor(series.length / 2));
+  }
+  const seenLabels = new Set();
+  return Array.from(indices)
+    .sort((a, b) => a - b)
+    .map((index) => {
+      const coord = coordinates[index];
+      const timeLabel = (series[index]?.isoTime ?? "--:--").slice(0, 5);
+      if (!coord || seenLabels.has(timeLabel)) {
+        return null;
+      }
+      seenLabels.add(timeLabel);
+      return {
+        x: coord.x,
+        label: timeLabel,
+      };
+    })
+    .filter(Boolean);
+}
+
+function createDailyCumulativeChart(isoDate, trades, options = {}) {
+  const hasDate = typeof isoDate === "string" && isoDate.length > 0;
+  const dateLabel = hasDate ? formatJapaneseDate(isoDate) : null;
+  const safeTrades = Array.isArray(trades) ? trades : [];
+  const series = hasDate ? buildDailyCumulativeSeries(isoDate, safeTrades) : [];
+  return createCumulativeChartFromSeries(series, {
+    title: hasDate && dateLabel ? `${dateLabel} の日次累積損益` : "日次累積損益",
+    ariaLabel: hasDate && dateLabel ? `${dateLabel}の日次累積損益推移` : "日次累積損益",
+    emptyMessage: hasDate && dateLabel ? `${dateLabel}の取引はありません。` : "日付を選択するとグラフを表示します。",
+    xAxisUnitLabel: "時刻",
+    xAxisTickGenerator: hasDate ? createDailyChartTicks : () => [],
+    tooltipFormatter:
+      hasDate && dateLabel
+        ? (point) => ({
+            title: `${dateLabel} ${point?.isoTime ?? "--:--"}`,
+            lines: [
+              `取引: ${formatCurrencyJPY(point?.value ?? 0)}`,
+              `累計: ${formatCurrencyJPY(point?.cumulative ?? 0)}`,
+            ],
+          })
+        : null,
+    xAccessor: hasDate
+      ? (point, index) => {
+          if (typeof point?.minutesFromMidnight === "number") {
+            return point.minutesFromMidnight;
+          }
+          const fallback = parseMinutesFromTime(point?.isoTime);
+          if (typeof fallback === "number") {
+            return fallback;
+          }
+          return index;
+        }
+      : undefined,
+    ...options,
   });
 }
 
@@ -639,14 +918,53 @@ function createYearlyCumulativeChart(calendar, tradeSummaries) {
   const dates = collectCalendarDates(calendar);
   const series = buildCumulativeSeriesFromDates(dates, tradeSummaries);
   return createCumulativeChartFromSeries(series, {
-    title: `${calendar.year}年の積み上げ損益`,
-    ariaLabel: `${calendar.year}年の積み上げ損益推移`,
+    title: `${calendar.year}年の累積損益`,
+    ariaLabel: `${calendar.year}年の累積損益推移`,
     emptyMessage: `${calendar.year}年の取引はありません。`,
     width: 220,
     height: 110,
     paddingX: 16,
     paddingY: 16,
   });
+}
+
+function openChartZoomModal(content, options = {}) {
+  if (!chartZoomModal || !chartZoomContainer || !(content instanceof HTMLElement)) {
+    return;
+  }
+  const title = options.title ?? "グラフの拡大表示";
+  chartZoomContainer.replaceChildren(content);
+  if (chartZoomTitle) {
+    chartZoomTitle.textContent = title;
+  }
+  chartZoomModal.classList.add("is-open");
+  chartZoomModal.setAttribute("aria-hidden", "false");
+  if (!document.body.classList.contains("modal-open")) {
+    document.body.classList.add("modal-open");
+  }
+  chartZoomCloseButton?.focus();
+}
+
+function closeChartZoomModal(options = {}) {
+  const { restoreFocus = true } = options;
+  if (!chartZoomModal || !chartZoomContainer) {
+    return;
+  }
+  if (!chartZoomModal.classList.contains("is-open")) {
+    return;
+  }
+  chartZoomContainer.replaceChildren();
+  chartZoomModal.classList.remove("is-open");
+  chartZoomModal.setAttribute("aria-hidden", "true");
+  if (
+    (!monthModal || !monthModal.classList.contains("is-open")) &&
+    (!yearChartModal || !yearChartModal.classList.contains("is-open"))
+  ) {
+    document.body.classList.remove("modal-open");
+  }
+  if (restoreFocus && lastFocusedChartZoomTrigger instanceof HTMLElement) {
+    lastFocusedChartZoomTrigger.focus();
+  }
 }
 
 function openYearChartModal(calendar) {
@@ -682,12 +1000,39 @@ function closeYearChartModal(options = {}) {
   yearChartContainer.replaceChildren();
   yearChartModal.classList.remove("is-open");
   yearChartModal.setAttribute("aria-hidden", "true");
-  if (!monthModal || !monthModal.classList.contains("is-open")) {
+  if (
+    (!monthModal || !monthModal.classList.contains("is-open")) &&
+    (!chartZoomModal || !chartZoomModal.classList.contains("is-open"))
+  ) {
     document.body.classList.remove("modal-open");
   }
   if (restoreFocus && lastFocusedYearChartTrigger instanceof HTMLElement) {
     lastFocusedYearChartTrigger.focus();
   }
+}
+
+function initChartZoomModal() {
+  if (!chartZoomModal || !chartZoomContainer) {
+    return;
+  }
+  document.querySelectorAll("[data-chart-zoom-close]").forEach((element) => {
+    element.addEventListener("click", () => {
+      closeChartZoomModal();
+    });
+  });
+  chartZoomModal.addEventListener("click", (event) => {
+    if (event.target === chartZoomModal) {
+      closeChartZoomModal();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && chartZoomModal.classList.contains("is-open")) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      closeChartZoomModal();
+    }
+  });
 }
 
 function openMonthModal(month, calendar, sourceNode) {
@@ -707,9 +1052,27 @@ function openMonthModal(month, calendar, sourceNode) {
 
   let selectedCell = null;
   const detailPanel = createDayDetailPanel();
+  let dayChartNode = document.createElement("div");
+  dayChartNode.className = "month-modal__day-chart-placeholder";
+
+  const makeDayChartNode = (isoDate, tradesForDay) => {
+    const chart = createDailyCumulativeChart(isoDate, tradesForDay);
+    enableChartZoom(chart, () =>
+      createDailyCumulativeChart(isoDate, tradesForDay, ZOOM_CHART_DIMENSIONS),
+    );
+    return chart;
+  };
+
+  const updateDayChart = (isoDate) => {
+    const tradesForDay = isoDate ? dailyTrades[isoDate] ?? [] : [];
+    const nextChart = makeDayChartNode(isoDate, tradesForDay);
+    dayChartNode.replaceWith(nextChart);
+    dayChartNode = nextChart;
+  };
 
   const handleDaySelect = (isoDate, td) => {
     if (!isoDate) {
+      updateDayChart(null);
       return;
     }
     if (selectedCell) {
@@ -718,6 +1081,7 @@ function openMonthModal(month, calendar, sourceNode) {
     selectedCell = td;
     selectedCell.classList.add("is-selected");
     renderDayDetail(detailPanel, isoDate, tradeSummaries[isoDate], dailyTrades[isoDate]);
+    updateDayChart(isoDate);
   };
 
   const monthNode = buildMonthNode(month, weekdayLabels, {
@@ -726,12 +1090,18 @@ function openMonthModal(month, calendar, sourceNode) {
     onDaySelect: handleDaySelect,
   });
   const chartNode = createCumulativeChart(month, tradeSummaries);
+  enableChartZoom(chartNode, () =>
+    createCumulativeChart(month, tradeSummaries, ZOOM_CHART_DIMENSIONS),
+  );
 
   const contentWrapper = document.createElement("div");
   contentWrapper.className = "month-modal__content";
   const calendarWrapper = document.createElement("div");
   calendarWrapper.className = "month-modal__calendar-wrapper";
-  calendarWrapper.append(monthNode, chartNode);
+  const chartRow = document.createElement("div");
+  chartRow.className = "month-modal__chart-row";
+  chartRow.append(chartNode, dayChartNode);
+  calendarWrapper.append(monthNode, chartRow);
   contentWrapper.append(calendarWrapper, detailPanel.section);
 
   modalCalendarContainer.replaceChildren(contentWrapper);
@@ -749,6 +1119,7 @@ function openMonthModal(month, calendar, sourceNode) {
     handleDaySelect(isoDate, initialCell);
   } else {
     showDayDetailPlaceholder(detailPanel, `${month.title}の取引はありません。`);
+    updateDayChart(null);
   }
 }
 
@@ -759,11 +1130,15 @@ function closeMonthModal() {
   if (!monthModal.classList.contains("is-open")) {
     return;
   }
+  closeChartZoomModal({ restoreFocus: false });
   closeYearChartModal({ restoreFocus: false });
   modalCalendarContainer.replaceChildren();
   monthModal.classList.remove("is-open");
   monthModal.setAttribute("aria-hidden", "true");
-  if (!yearChartModal || !yearChartModal.classList.contains("is-open")) {
+  if (
+    (!yearChartModal || !yearChartModal.classList.contains("is-open")) &&
+    (!chartZoomModal || !chartZoomModal.classList.contains("is-open"))
+  ) {
     document.body.classList.remove("modal-open");
   }
   if (lastFocusedMonth instanceof HTMLElement) {
@@ -973,6 +1348,10 @@ function init() {
     !yearChartModal ||
     !yearChartContainer ||
     !yearChartCloseButton ||
+    !chartZoomModal ||
+    !chartZoomContainer ||
+    !chartZoomCloseButton ||
+    !chartZoomTitle ||
     !csvFileInput ||
     !csvResetButton ||
     !csvStatus ||
@@ -993,6 +1372,10 @@ function init() {
       yearChartModal: !!yearChartModal,
       yearChartContainer: !!yearChartContainer,
       yearChartCloseButton: !!yearChartCloseButton,
+      chartZoomModal: !!chartZoomModal,
+      chartZoomContainer: !!chartZoomContainer,
+      chartZoomCloseButton: !!chartZoomCloseButton,
+      chartZoomTitle: !!chartZoomTitle,
       csvFileInput: !!csvFileInput,
       csvResetButton: !!csvResetButton,
       csvStatus: !!csvStatus,
@@ -1008,6 +1391,7 @@ function init() {
   initYearChartTrigger();
   initMonthModal();
   initYearChartModal();
+  initChartZoomModal();
   const initialYear = Number.parseInt(yearInput.value, 10);
   void loadCalendar(initialYear);
 }

@@ -98,6 +98,31 @@
       </div>
     </div>
 
+    <div
+      id="chartZoomModal"
+      class="chart-zoom-modal"
+      aria-hidden="true"
+      role="dialog"
+      aria-labelledby="chartZoomTitle"
+    >
+      <div class="chart-zoom-modal__backdrop" data-chart-zoom-close></div>
+      <div class="chart-zoom-modal__dialog">
+        <button
+          type="button"
+          id="chartZoomCloseButton"
+          class="chart-zoom-modal__close"
+          aria-label="閉じる"
+          data-chart-zoom-close
+        >
+          ×
+        </button>
+        <div class="chart-zoom-modal__content">
+          <h2 id="chartZoomTitle" class="chart-zoom-modal__title">グラフの拡大表示</h2>
+          <div id="chartZoomContainer" class="chart-zoom-modal__chart"></div>
+        </div>
+      </div>
+    </div>
+
     <template id="monthTemplate">
       <article class="calendar-month">
         <header class="month-header"></header>

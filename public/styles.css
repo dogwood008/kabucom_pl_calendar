@@ -416,6 +416,15 @@ main {
   font-variant-numeric: tabular-nums;
 }
 
+.month-chart--zoomable {
+  cursor: zoom-in;
+}
+
+.month-chart--zoomable:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
 .day-total {
   display: block;
   margin-top: 0.35rem;
@@ -567,6 +576,63 @@ main {
   gap: 1rem;
 }
 
+.chart-zoom-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.chart-zoom-modal.is-open {
+  display: flex;
+}
+
+.chart-zoom-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(1px);
+}
+
+.chart-zoom-modal__dialog {
+  position: relative;
+  z-index: 1;
+  width: min(900px, 96vw);
+  border-radius: 1rem;
+  padding: 1.75rem 1.5rem 1.5rem;
+  background: #ffffff;
+  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.35);
+}
+
+.chart-zoom-modal__close {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  border: none;
+  background: rgba(15, 23, 42, 0.85);
+  color: #ffffff;
+  border-radius: 999px;
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.chart-zoom-modal__title {
+  margin: 0 0 1rem;
+  font-size: 1.2rem;
+  color: #0f172a;
+}
+
+.chart-zoom-modal__chart .month-chart {
+  margin: 0;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+}
+
 .month-modal__content {
   display: flex;
   flex-direction: column;
@@ -586,6 +652,23 @@ main {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.month-modal__chart-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .month-modal__chart-row {
+    flex-direction: row;
+    align-items: stretch;
+  }
+}
+
+.month-modal__chart-row .month-chart {
+  flex: 1 1 0;
 }
 
 .day-detail-panel {
