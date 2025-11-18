@@ -588,6 +588,23 @@ main {
   gap: 1rem;
 }
 
+.month-modal__chart-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .month-modal__chart-row {
+    flex-direction: row;
+    align-items: stretch;
+  }
+}
+
+.month-modal__chart-row .month-chart {
+  flex: 1 1 0;
+}
+
 .day-detail-panel {
   flex: 1 1 48%;
   min-width: 360px;
