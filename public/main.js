@@ -1003,12 +1003,7 @@ function initChartZoomModal() {
     }
   });
   document.addEventListener("keydown", (event) => {
-    if (
-      event.key === "Escape" &&
-      chartZoomModal.classList.contains("is-open") &&
-      (!monthModal || !monthModal.classList.contains("is-open")) &&
-      (!yearChartModal || !yearChartModal.classList.contains("is-open"))
-    ) {
+    if (event.key === "Escape" && chartZoomModal.classList.contains("is-open")) {
       event.preventDefault();
       event.stopPropagation();
       closeChartZoomModal();
