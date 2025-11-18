@@ -567,8 +567,8 @@ function enableChartZoom(chartNode, createZoomedChart, options = {}) {
 
 function createCumulativeChartFromSeries(series, options = {}) {
   const {
-    title = "積み上げ損益",
-    ariaLabel = "積み上げ損益の推移",
+    title = "累積損益",
+    ariaLabel = "累積損益の推移",
     emptyMessage = "この期間の取引はありません。",
     width = 120,
     height = 70,
@@ -860,8 +860,8 @@ function createDailyCumulativeChart(isoDate, trades, options = {}) {
   const safeTrades = Array.isArray(trades) ? trades : [];
   const series = hasDate ? buildDailyCumulativeSeries(isoDate, safeTrades) : [];
   return createCumulativeChartFromSeries(series, {
-    title: hasDate && dateLabel ? `${dateLabel} の日次積み上げ損益` : "日次積み上げ損益",
-    ariaLabel: hasDate && dateLabel ? `${dateLabel}の日次積み上げ損益推移` : "日次積み上げ損益",
+    title: hasDate && dateLabel ? `${dateLabel} の日次累積損益` : "日次累積損益",
+    ariaLabel: hasDate && dateLabel ? `${dateLabel}の日次累積損益推移` : "日次累積損益",
     emptyMessage: hasDate && dateLabel ? `${dateLabel}の取引はありません。` : "日付を選択するとグラフを表示します。",
     xAxisUnitLabel: "時刻",
     xAxisTickGenerator: hasDate ? createDailyChartTicks : () => [],
@@ -895,8 +895,8 @@ function createYearlyCumulativeChart(calendar, tradeSummaries) {
   const dates = collectCalendarDates(calendar);
   const series = buildCumulativeSeriesFromDates(dates, tradeSummaries);
   return createCumulativeChartFromSeries(series, {
-    title: `${calendar.year}年の積み上げ損益`,
-    ariaLabel: `${calendar.year}年の積み上げ損益推移`,
+    title: `${calendar.year}年の累積損益`,
+    ariaLabel: `${calendar.year}年の累積損益推移`,
     emptyMessage: `${calendar.year}年の取引はありません。`,
     width: 220,
     height: 110,
