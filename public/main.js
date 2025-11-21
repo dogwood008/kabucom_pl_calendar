@@ -161,6 +161,7 @@ async function resetToDefaultCsv() {
 
 async function applyCsvContent(csvContent, uiOptions = {}) {
   activeCsvContent = csvContent;
+  setSpreadsheetError("");
   const year = getEffectiveYearValue();
   const success = await loadCalendar(year);
   if (!success) {
