@@ -1404,7 +1404,7 @@ function initSpreadsheetImport() {
   }
 
   const savedPsk = readSavedSpreadsheetPsk();
-  if (savedPsk && !spreadsheetPskInput.value) {
+  if (savedPsk) {
     spreadsheetPskInput.value = savedPsk;
     spreadsheetSavePskCheckbox.checked = true;
   } else {
