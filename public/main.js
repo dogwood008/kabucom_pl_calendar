@@ -1450,8 +1450,8 @@ function initSpreadsheetImport() {
           saveSpreadsheetPsk(null);
         }
       } else {
-        setSpreadsheetError("スプレッドシートのデータを反映できませんでした。");
-        setSpreadsheetStatus("スプレッドシートのデータを反映できませんでした。");
+        setSpreadsheetError("スプレッドシートのデータを反映できませんでした。CSVの形式が不正か、内容が空である可能性があります。");
+        setSpreadsheetStatus("データの反映に失敗しました。");
       }
     } catch (error) {
       console.error(error);
