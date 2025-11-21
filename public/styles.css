@@ -242,6 +242,7 @@ main {
   border: 1px solid #d1d5db;
   background-color: #f8fafc;
   color: #1f2933;
+  font-weight: 600;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
