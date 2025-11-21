@@ -46,6 +46,8 @@ const ZOOM_CHART_DIMENSIONS = {
 const DAILY_CHART_TICK_RATIOS = [0.25, 0.5, 0.75];
 const SPREADSHEET_ENDPOINT_STORAGE_KEY = "spreadsheetEndpointUrl";
 const SPREADSHEET_PSK_STORAGE_KEY = "spreadsheetPsk";
+const DEFAULT_SPREADSHEET_ENDPOINT =
+  "https://script.google.com/macros/s/AKfycbzIxdVW1G20fnrMeysplw2CQ3r2-qBgRd3dUBC97iRRkVbWNxAtC6OVQx9xnG1dNw/exec";
 
 function getEffectiveYearValue() {
   const parsed = Number.parseInt(yearInput?.value ?? "", 10);
@@ -1391,10 +1393,13 @@ function initSpreadsheetImport() {
   }
 
   const savedEndpoint = readSavedSpreadsheetEndpoint();
-  if (savedEndpoint && !spreadsheetEndpointInput.value) {
+  if (savedEndpoint) {
     spreadsheetEndpointInput.value = savedEndpoint;
     setSpreadsheetStatus("保存済みのエンドポイントを読み込みました。");
   } else {
+    if (!spreadsheetEndpointInput.value) {
+      spreadsheetEndpointInput.value = DEFAULT_SPREADSHEET_ENDPOINT;
+    }
     setSpreadsheetStatus("スプレッドシート未取得です。URLを入力してください。");
   }
 
@@ -1403,6 +1408,9 @@ function initSpreadsheetImport() {
     spreadsheetPskInput.value = savedPsk;
     spreadsheetSavePskCheckbox.checked = true;
   } else {
+    if (!spreadsheetPskInput.value) {
+      spreadsheetPskInput.value = "testpsk";
+    }
     spreadsheetSavePskCheckbox.checked = false;
   }
 
@@ -1450,8 +1458,8 @@ function initSpreadsheetImport() {
     setSpreadsheetError("");
     saveSpreadsheetEndpoint(null);
     saveSpreadsheetPsk(null);
-    spreadsheetEndpointInput.value = "";
-    spreadsheetPskInput.value = "";
+    spreadsheetEndpointInput.value = DEFAULT_SPREADSHEET_ENDPOINT;
+    spreadsheetPskInput.value = "testpsk";
     spreadsheetSavePskCheckbox.checked = false;
     await resetToDefaultCsv();
   });
