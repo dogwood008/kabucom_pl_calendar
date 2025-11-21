@@ -1,4 +1,4 @@
-# kabucom_pl_calendar
+# csv_to_pl_calendar
 
 ブラウザで年間カレンダーを閲覧できる TypeScript + Express 製のアプリケーションです。デフォルトでは今年のカレンダーを表示し、任意の年に切り替えられます。`docs/dummy_kabucom.csv` から証券会社の取引データを読み込み、日別損益をカレンダーに重ねて可視化します。
 
