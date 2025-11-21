@@ -79,6 +79,9 @@ export async function fetchSpreadsheetCsv(endpoint, preSharedKey) {
 
   const trimmedEndpoint = endpoint.trim();
   const trimmedPsk = preSharedKey.trim();
+  if (!trimmedEndpoint.startsWith("https://")) {
+    throw new Error("エンドポイントは https:// で始まるURLを指定してください");
+  }
 
   let response;
   try {
