@@ -44,9 +44,9 @@ curl "http://localhost:3000/api/calendar?year=2024&csvPath=docs/your_trades.csv"
 
 トップ画面の「スプレッドシートから取得」セクションに、スプレッドシートに紐づけた Google Apps Script（ウェブアプリとしてデプロイ）の URL を入力すると、そのエンドポイントから暗号化済み CSV を取得して反映できます。
 
-ダミーデータスプシ: https://docs.google.com/spreadsheets/d/1m3G3GACuuIy2OXusrINp8Ls7UqffxFf713hwvK4vofU/edit?usp=sharing
-GAS経由で取得できるデータ: https://script.google.com/macros/s/AKfycbzIxdVW1G20fnrMeysplw2CQ3r2-qBgRd3dUBC97iRRkVbWNxAtC6OVQx9xnG1dNw/exec
-GAS本体: ./docs/GAS.gs
+- ダミーデータスプシ: https://docs.google.com/spreadsheets/d/1m3G3GACuuIy2OXusrINp8Ls7UqffxFf713hwvK4vofU/edit?usp=sharing
+- GAS経由で取得できるデータ: https://script.google.com/macros/s/AKfycbzIxdVW1G20fnrMeysplw2CQ3r2-qBgRd3dUBC97iRRkVbWNxAtC6OVQx9xnG1dNw/exec
+- GAS本体: ./docs/GAS.gs
 
 - レスポンスは `{ iv: string, ciphertext: string }` 形式の JSON を想定し、`ciphertext` を PSK（共有鍵）の SHA-256 から得た AES-CBC 鍵で復号します。平文は CSV として扱われ、ローカルファイルを選んだ場合と同じ形式で読み込まれます。
 - デフォルトの入力例としてサンプルの GAS URL と PSK（`testpsk`）がプレースホルダーで入っています。自身の GAS を使う場合は URL と PSK を置き換えてください。
