@@ -49,6 +49,53 @@
         </div>
         <p id="csvStatus" class="csv-upload__status" aria-live="polite"></p>
         <p id="csvError" class="form-error" aria-live="polite"></p>
+
+        <div class="spreadsheet-section" aria-labelledby="spreadsheetSectionTitle">
+          <h3 id="spreadsheetSectionTitle">スプレッドシートから取得</h3>
+          <p class="spreadsheet-section__description">
+            Google Apps Script のエンドポイントを指定して、スプレッドシートから暗号化済みのデータを直接取得します。利用したURLはブラウザに保存されます。
+          </p>
+          <label for="spreadsheetEndpointInput" class="spreadsheet-section__label">
+            GASエンドポイント
+          </label>
+          <div class="spreadsheet-section__controls">
+            <input
+              type="url"
+              id="spreadsheetEndpointInput"
+              name="spreadsheetEndpoint"
+              placeholder="https://script.google.com/macros/s/xxxx/exec"
+              aria-describedby="spreadsheetStatus spreadsheetError"
+              inputmode="url"
+            />
+            <button type="button" id="spreadsheetFetchButton" class="spreadsheet-section__action">
+              取得して反映
+            </button>
+            <button
+              type="button"
+              id="spreadsheetResetButton"
+              class="spreadsheet-section__secondary"
+            >
+              エンドポイントをクリア
+            </button>
+          </div>
+          <div class="spreadsheet-section__psk">
+            <label for="spreadsheetPskInput" class="spreadsheet-section__label">PSK</label>
+            <input
+              type="password"
+              id="spreadsheetPskInput"
+              name="spreadsheetPsk"
+              placeholder="共有鍵を入力"
+              aria-describedby="spreadsheetStatus spreadsheetError"
+              autocomplete="current-password"
+            />
+            <input type="checkbox" id="spreadsheetSavePskCheckbox" />
+            <label for="spreadsheetSavePskCheckbox" class="spreadsheet-section__save">
+              このブラウザにPSKを保存する（注意：平文で保存され、暗号化はされません）
+            </label>
+          </div>
+          <p id="spreadsheetStatus" class="spreadsheet-section__status" aria-live="polite"></p>
+          <p id="spreadsheetError" class="form-error" aria-live="polite"></p>
+        </div>
       </section>
 
       <section id="calendar" class="calendar-grid" aria-live="polite"></section>

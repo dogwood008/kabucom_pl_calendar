@@ -1,4 +1,5 @@
 import { fetchCalendarData } from "./calendarApi.js";
+import { fetchSpreadsheetCsv } from "./spreadsheetApi.js";
 
 const calendarElement = document.getElementById("calendar");
 const yearForm = document.getElementById("yearForm");
@@ -22,6 +23,13 @@ const csvError = document.getElementById("csvError");
 const csvStatus = document.getElementById("csvStatus");
 const csvFileName = document.getElementById("csvFileName");
 const csvFileTrigger = document.querySelector("[data-csv-trigger]");
+const spreadsheetEndpointInput = document.getElementById("spreadsheetEndpointInput");
+const spreadsheetFetchButton = document.getElementById("spreadsheetFetchButton");
+const spreadsheetResetButton = document.getElementById("spreadsheetResetButton");
+const spreadsheetStatus = document.getElementById("spreadsheetStatus");
+const spreadsheetError = document.getElementById("spreadsheetError");
+const spreadsheetPskInput = document.getElementById("spreadsheetPskInput");
+const spreadsheetSavePskCheckbox = document.getElementById("spreadsheetSavePskCheckbox");
 
 const RENDER_MODE = {
   GRID: "grid",
@@ -36,6 +44,11 @@ const ZOOM_CHART_DIMENSIONS = {
 };
 
 const DAILY_CHART_TICK_RATIOS = [0.25, 0.5, 0.75];
+const SPREADSHEET_ENDPOINT_STORAGE_KEY = "spreadsheetEndpointUrl";
+const SPREADSHEET_PSK_STORAGE_KEY = "spreadsheetPsk";
+const DEFAULT_SPREADSHEET_ENDPOINT =
+  "https://script.google.com/macros/s/AKfycbzIxdVW1G20fnrMeysplw2CQ3r2-qBgRd3dUBC97iRRkVbWNxAtC6OVQx9xnG1dNw/exec";
+const DEFAULT_SPREADSHEET_PSK = "testpsk";
 
 function getEffectiveYearValue() {
   const parsed = Number.parseInt(yearInput?.value ?? "", 10);
@@ -62,6 +75,109 @@ function setCsvFileName(text) {
   if (csvFileName) {
     csvFileName.textContent = text ?? "";
   }
+}
+
+function setSpreadsheetError(message) {
+  if (spreadsheetError) {
+    spreadsheetError.textContent = message ?? "";
+  }
+}
+
+function setSpreadsheetStatus(message) {
+  if (spreadsheetStatus) {
+    spreadsheetStatus.textContent = message ?? "";
+  }
+}
+
+function resetSpreadsheetDefaults() {
+  if (!spreadsheetEndpointInput || !spreadsheetPskInput || !spreadsheetSavePskCheckbox) {
+    return;
+  }
+  spreadsheetEndpointInput.value = DEFAULT_SPREADSHEET_ENDPOINT;
+  spreadsheetPskInput.value = DEFAULT_SPREADSHEET_PSK;
+  spreadsheetSavePskCheckbox.checked = false;
+}
+
+function readSavedSpreadsheetEndpoint() {
+  try {
+    return localStorage.getItem(SPREADSHEET_ENDPOINT_STORAGE_KEY);
+  } catch (error) {
+    console.warn("保存済みのエンドポイントを読み取れませんでした", error);
+    return null;
+  }
+}
+
+function saveSpreadsheetEndpoint(value) {
+  try {
+    if (value) {
+      localStorage.setItem(SPREADSHEET_ENDPOINT_STORAGE_KEY, value);
+    } else {
+      localStorage.removeItem(SPREADSHEET_ENDPOINT_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.warn("エンドポイントの保存に失敗しました", error);
+  }
+}
+
+function readSavedSpreadsheetPsk() {
+  try {
+    return localStorage.getItem(SPREADSHEET_PSK_STORAGE_KEY);
+  } catch (error) {
+    console.warn("保存済みのPSKを読み取れませんでした", error);
+    return null;
+  }
+}
+
+function saveSpreadsheetPsk(value) {
+  try {
+    if (value) {
+      localStorage.setItem(SPREADSHEET_PSK_STORAGE_KEY, value);
+    } else {
+      localStorage.removeItem(SPREADSHEET_PSK_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.warn("PSKの保存に失敗しました", error);
+  }
+}
+
+function applyDefaultCsvUiState() {
+  setCsvError("");
+  setCsvFileName("未選択");
+  setCsvStatus("デフォルトのCSVを使用します。");
+}
+
+async function resetToDefaultCsv() {
+  activeCsvContent = null;
+  applyDefaultCsvUiState();
+  setSpreadsheetError("");
+  const savedEndpoint = readSavedSpreadsheetEndpoint();
+  const spreadsheetMessage = savedEndpoint
+    ? "保存済みのエンドポイントがあります。必要に応じて取得してください。"
+    : "スプレッドシート未取得です。URLを入力してください。";
+  setSpreadsheetStatus(spreadsheetMessage);
+  const year = getEffectiveYearValue();
+  await loadCalendar(year);
+}
+
+async function applyCsvContent(csvContent, uiOptions = {}) {
+  activeCsvContent = csvContent;
+  setSpreadsheetError("");
+  const year = getEffectiveYearValue();
+  const success = await loadCalendar(year);
+  if (!success) {
+    return false;
+  }
+  setCsvError("");
+  if (uiOptions.fileName) {
+    setCsvFileName(uiOptions.fileName);
+  }
+  if (uiOptions.statusText) {
+    setCsvStatus(uiOptions.statusText);
+  }
+  if (uiOptions.spreadsheetStatusText) {
+    setSpreadsheetStatus(uiOptions.spreadsheetStatusText);
+  }
+  return true;
 }
 
 let lastFocusedMonth = null;
@@ -1224,8 +1340,7 @@ function initCsvUpload() {
     return;
   }
 
-  setCsvStatus("デフォルトのCSVを使用します。");
-  setCsvFileName("未選択");
+  applyDefaultCsvUiState();
 
   if (csvFileTrigger instanceof HTMLElement) {
     csvFileTrigger.addEventListener("keydown", (event) => {
@@ -1243,6 +1358,7 @@ function initCsvUpload() {
       return;
     }
 
+    setSpreadsheetError("");
     setCsvError("");
     setCsvStatus(`${file.name} を読み込み中です…`);
     try {
@@ -1253,11 +1369,11 @@ function initCsvUpload() {
         csvFileInput.value = "";
         return;
       }
-      activeCsvContent = content;
-      setCsvFileName(file.name);
-      setCsvStatus(`${file.name} を使用しています。`);
-      const year = getEffectiveYearValue();
-      const success = await loadCalendar(year);
+      const success = await applyCsvContent(content, {
+        fileName: file.name,
+        statusText: `${file.name} を使用しています。`,
+        spreadsheetStatusText: "ファイルアップロードを優先しています。",
+      });
       if (!success) {
         setCsvError("CSVの解析に失敗しました。ファイル内容をご確認ください。");
       }
@@ -1271,12 +1387,91 @@ function initCsvUpload() {
   });
 
   csvResetButton.addEventListener("click", async () => {
-    setCsvError("");
-    activeCsvContent = null;
-    setCsvFileName("未選択");
-    setCsvStatus("デフォルトのCSVを使用します。");
-    const year = getEffectiveYearValue();
-    await loadCalendar(year);
+    await resetToDefaultCsv();
+  });
+}
+
+function initSpreadsheetImport() {
+  if (
+    !spreadsheetEndpointInput ||
+    !spreadsheetFetchButton ||
+    !spreadsheetResetButton ||
+    !spreadsheetStatus ||
+    !spreadsheetError ||
+    !spreadsheetPskInput ||
+    !spreadsheetSavePskCheckbox
+  ) {
+    return;
+  }
+
+  const savedEndpoint = readSavedSpreadsheetEndpoint();
+  if (savedEndpoint) {
+    spreadsheetEndpointInput.value = savedEndpoint;
+    setSpreadsheetStatus("保存済みのエンドポイントを読み込みました。");
+  } else {
+    if (!spreadsheetEndpointInput.value) {
+      spreadsheetEndpointInput.value = DEFAULT_SPREADSHEET_ENDPOINT;
+    }
+    setSpreadsheetStatus("スプレッドシート未取得です。URLを入力してください。");
+  }
+
+  const savedPsk = readSavedSpreadsheetPsk();
+  if (savedPsk) {
+    spreadsheetPskInput.value = savedPsk;
+    spreadsheetSavePskCheckbox.checked = true;
+  } else {
+    if (!spreadsheetPskInput.value) {
+      spreadsheetPskInput.value = DEFAULT_SPREADSHEET_PSK;
+    }
+    spreadsheetSavePskCheckbox.checked = false;
+  }
+
+  let isFetchingSpreadsheet = false;
+
+  spreadsheetFetchButton.addEventListener("click", async () => {
+    if (isFetchingSpreadsheet) {
+      return;
+    }
+    isFetchingSpreadsheet = true;
+    setSpreadsheetError("");
+    setSpreadsheetStatus("スプレッドシートから取得中です…");
+    try {
+      const endpoint = spreadsheetEndpointInput.value ?? "";
+      const preSharedKey = spreadsheetPskInput.value ?? "";
+      const csvContent = await fetchSpreadsheetCsv(endpoint, preSharedKey);
+      const success = await applyCsvContent(csvContent, {
+        fileName: "スプレッドシート",
+        statusText: "スプレッドシートのデータを使用しています。",
+        spreadsheetStatusText: "スプレッドシートからデータを取得しました。",
+      });
+      if (success) {
+        saveSpreadsheetEndpoint(endpoint.trim());
+        if (spreadsheetSavePskCheckbox.checked) {
+          saveSpreadsheetPsk(preSharedKey.trim());
+        } else {
+          saveSpreadsheetPsk(null);
+        }
+      } else {
+        setSpreadsheetError("スプレッドシートのデータを反映できませんでした。CSVの形式が不正か、内容が空である可能性があります。");
+        setSpreadsheetStatus("データの反映に失敗しました。");
+      }
+    } catch (error) {
+      console.error(error);
+      const message =
+        error instanceof Error ? error.message : "スプレッドシートの読み込みに失敗しました。";
+      setSpreadsheetError(message);
+      setSpreadsheetStatus("スプレッドシートの取得に失敗しました。");
+    } finally {
+      isFetchingSpreadsheet = false;
+    }
+  });
+
+  spreadsheetResetButton.addEventListener("click", async () => {
+    setSpreadsheetError("");
+    saveSpreadsheetEndpoint(null);
+    saveSpreadsheetPsk(null);
+    resetSpreadsheetDefaults();
+    await resetToDefaultCsv();
   });
 }
 
@@ -1357,7 +1552,12 @@ function init() {
     !csvStatus ||
     !csvError ||
     !csvFileName ||
-    !csvFileTrigger
+    !csvFileTrigger ||
+    !spreadsheetEndpointInput ||
+    !spreadsheetFetchButton ||
+    !spreadsheetResetButton ||
+    !spreadsheetStatus ||
+    !spreadsheetError
   ) {
     console.error("必要なUI要素が見つかりませんでした:", {
       calendarElement: !!calendarElement,
@@ -1382,12 +1582,18 @@ function init() {
       csvError: !!csvError,
       csvFileName: !!csvFileName,
       csvFileTrigger: !!csvFileTrigger,
+      spreadsheetEndpointInput: !!spreadsheetEndpointInput,
+      spreadsheetFetchButton: !!spreadsheetFetchButton,
+      spreadsheetResetButton: !!spreadsheetResetButton,
+      spreadsheetStatus: !!spreadsheetStatus,
+      spreadsheetError: !!spreadsheetError,
     });
     return;
   }
 
   initYearForm();
   initCsvUpload();
+  initSpreadsheetImport();
   initYearChartTrigger();
   initMonthModal();
   initYearChartModal();
