@@ -32,6 +32,7 @@ export const gmoClickSchema: TradeCsvSchema = {
       realizedProfitConvertedRaw !== undefined && realizedProfitConvertedRaw.trim() !== "";
     const grossProfit = hasConvertedProfit ? realizedProfitConverted : realizedProfit;
 
+    // 手数料項目は CSV に含まれない場合があるため、未定義時は 0 扱いとする。
     const fee =
       parseCurrency(readField(row, fieldIndices, "手数料")) +
       parseCurrency(readField(row, fieldIndices, "手数料消費税")) +
