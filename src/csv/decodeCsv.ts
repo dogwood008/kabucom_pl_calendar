@@ -1,7 +1,14 @@
 import { TextDecoder } from "node:util";
 
 const UTF8_DECODER = new TextDecoder("utf-8", { fatal: false });
-const SHIFT_JIS_DECODER = new TextDecoder("shift_jis", { fatal: false });
+const SHIFT_JIS_DECODER = (() => {
+  try {
+    return new TextDecoder("shift_jis", { fatal: false });
+  } catch (error) {
+    console.warn("Shift_JIS デコーダーの初期化に失敗したため UTF-8 にフォールバックします:", error);
+    return null;
+  }
+})();
 
 function countReplacementChars(text: string): number {
   if (!text) {
@@ -22,10 +29,16 @@ export function decodeCsvBuffer(buffer: Buffer): string {
     return utf8Text;
   }
 
-  const shiftJisText = SHIFT_JIS_DECODER.decode(buffer);
-  const shiftJisReplacements = countReplacementChars(shiftJisText);
-  if (shiftJisReplacements === 0 || shiftJisReplacements < utf8Replacements) {
-    return shiftJisText;
+  if (SHIFT_JIS_DECODER) {
+    try {
+      const shiftJisText = SHIFT_JIS_DECODER.decode(buffer);
+      const shiftJisReplacements = countReplacementChars(shiftJisText);
+      if (shiftJisReplacements === 0 || shiftJisReplacements < utf8Replacements) {
+        return shiftJisText;
+      }
+    } catch (error) {
+      console.warn("Shift_JIS でのデコードに失敗したため UTF-8 を使用します:", error);
+    }
   }
 
   return utf8Text;
