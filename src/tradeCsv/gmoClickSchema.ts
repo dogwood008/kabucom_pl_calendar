@@ -26,11 +26,11 @@ export const gmoClickSchema: TradeCsvSchema = {
     }
 
     const realizedProfit = parseCurrency(readField(row, fieldIndices, "実現損益（円貨）"));
-    const realizedProfitConverted = parseCurrency(
-      readField(row, fieldIndices, "実現損益（円換算額）"),
-    );
-    const netProfit =
-      realizedProfitConverted !== 0 ? realizedProfitConverted : realizedProfit;
+    const realizedProfitConvertedRaw = readField(row, fieldIndices, "実現損益（円換算額）");
+    const realizedProfitConverted = parseCurrency(realizedProfitConvertedRaw);
+    const hasConvertedProfit =
+      realizedProfitConvertedRaw !== undefined && realizedProfitConvertedRaw.trim() !== "";
+    const netProfit = hasConvertedProfit ? realizedProfitConverted : realizedProfit;
 
     const fee =
       parseCurrency(readField(row, fieldIndices, "手数料")) +
