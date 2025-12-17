@@ -51,7 +51,7 @@ const DEFAULT_SPREADSHEET_ENDPOINT =
 const DEFAULT_SPREADSHEET_PSK = "testpsk";
 
 function countReplacementChars(text) {
-  if (typeof text !== "string" || text.length === 0) {
+  if (!text) {
     return 0;
   }
   const matches = text.match(/\ufffd/g);
