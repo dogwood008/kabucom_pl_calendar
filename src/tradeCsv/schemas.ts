@@ -1,9 +1,10 @@
 import { TradeRecord } from "../tradeTypes";
 import { kabucomSchema } from "./kabucomSchema";
+import { gmoClickSchema } from "./gmoClickSchema";
 import { sbiOtcCfdSchema } from "./sbiOtcCfdSchema";
 import { FieldIndexMap, TradeCsvSchema } from "./schemaTypes";
 
-const REGISTERED_SCHEMAS: TradeCsvSchema[] = [kabucomSchema, sbiOtcCfdSchema];
+const REGISTERED_SCHEMAS: TradeCsvSchema[] = [kabucomSchema, sbiOtcCfdSchema, gmoClickSchema];
 
 export function mapRowsToRecords(rows: string[][]): TradeRecord[] {
   if (rows.length === 0) {

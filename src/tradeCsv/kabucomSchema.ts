@@ -6,6 +6,7 @@ import {
   parseInteger,
   toIsoDate,
 } from "./parsers";
+import { readField, readTrimmedField } from "./schemaUtils";
 
 const REQUIRED_FIELDS = ["成立日", "売買", "取引数量（枚）", "確定損益"];
 
@@ -13,16 +14,16 @@ export const kabucomSchema: TradeCsvSchema = {
   id: "kabucom",
   requiredFields: REQUIRED_FIELDS,
   parseRecord: (row, fieldIndices) => {
-    const date = toIsoDate(row[fieldIndices["成立日"]] ?? "");
+    const date = toIsoDate(readField(row, fieldIndices, "成立日"));
     if (!date) {
       return null;
     }
 
-    const isoTime = normalizeTimeString(row[fieldIndices["成立時間"]] ?? "");
-    const symbol = (row[fieldIndices["銘柄"]] ?? "").trim();
-    const contractMonth = (row[fieldIndices["限月"]] ?? "").trim();
-    const side = (row[fieldIndices["売買"]] ?? "").trim();
-    const action = (row[fieldIndices["取引"]] ?? "").trim();
+    const isoTime = normalizeTimeString(readField(row, fieldIndices, "成立時間"));
+    const symbol = readTrimmedField(row, fieldIndices, "銘柄");
+    const contractMonth = readTrimmedField(row, fieldIndices, "限月");
+    const side = readTrimmedField(row, fieldIndices, "売買");
+    const action = readTrimmedField(row, fieldIndices, "取引");
 
     return {
       isoDate: date,
@@ -32,11 +33,11 @@ export const kabucomSchema: TradeCsvSchema = {
       contractMonth,
       side,
       action,
-      quantity: parseInteger(row[fieldIndices["取引数量（枚）"]] ?? ""),
-      price: parseDecimal(row[fieldIndices["成立値段"]] ?? ""),
-      fee: parseCurrency(row[fieldIndices["手数料"]] ?? ""),
-      grossProfit: parseCurrency(row[fieldIndices["売買損益"]] ?? ""),
-      netProfit: parseCurrency(row[fieldIndices["確定損益"]] ?? ""),
+      quantity: parseInteger(readField(row, fieldIndices, "取引数量（枚）")),
+      price: parseDecimal(readField(row, fieldIndices, "成立値段")),
+      fee: parseCurrency(readField(row, fieldIndices, "手数料")),
+      grossProfit: parseCurrency(readField(row, fieldIndices, "売買損益")),
+      netProfit: parseCurrency(readField(row, fieldIndices, "確定損益")),
     };
   },
 };

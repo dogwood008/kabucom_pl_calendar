@@ -49,6 +49,57 @@ const SPREADSHEET_PSK_STORAGE_KEY = "spreadsheetPsk";
 const DEFAULT_SPREADSHEET_ENDPOINT =
   "https://script.google.com/macros/s/AKfycbzIxdVW1G20fnrMeysplw2CQ3r2-qBgRd3dUBC97iRRkVbWNxAtC6OVQx9xnG1dNw/exec";
 const DEFAULT_SPREADSHEET_PSK = "testpsk";
+const UTF8_DECODER = new TextDecoder("utf-8");
+
+// サーバー側の src/csv/decodeCsv.ts と同等のエンコーディング判定をブラウザ単体で実行するため、重複実装をここに保持する。
+// public 配下はビルドを挟まず静的に配信しているため、共通モジュール化には追加のビルド工程が必要になる点も明示しておく。
+let shiftJisDecoder = null;
+try {
+  shiftJisDecoder = new TextDecoder("shift_jis", { fatal: false });
+} catch (error) {
+  console.warn("Shift_JIS デコーダーを初期化できませんでした:", error);
+}
+
+function countReplacementChars(text) {
+  if (!text) {
+    return 0;
+  }
+  const matches = text.match(/\ufffd/g);
+  return matches ? matches.length : 0;
+}
+
+function decodeCsvArrayBuffer(buffer) {
+  if (!(buffer instanceof ArrayBuffer)) {
+    return "";
+  }
+  const utf8Text = UTF8_DECODER.decode(buffer);
+  const utf8ReplacementCount = countReplacementChars(utf8Text);
+  if (utf8ReplacementCount === 0) {
+    return utf8Text;
+  }
+
+  if (shiftJisDecoder) {
+    try {
+      const shiftJisText = shiftJisDecoder.decode(buffer);
+      const shiftJisReplacementCount = countReplacementChars(shiftJisText);
+      if (shiftJisReplacementCount === 0 || shiftJisReplacementCount < utf8ReplacementCount) {
+        return shiftJisText;
+      }
+    } catch (error) {
+      console.warn("Shift_JIS でのデコードに失敗したため UTF-8 を使用します:", error);
+    }
+  }
+
+  return utf8Text;
+}
+
+async function readCsvFileWithFallback(file) {
+  if (!(file instanceof File)) {
+    return "";
+  }
+  const buffer = await file.arrayBuffer();
+  return decodeCsvArrayBuffer(buffer);
+}
 
 function getEffectiveYearValue() {
   const parsed = Number.parseInt(yearInput?.value ?? "", 10);
@@ -1362,7 +1413,7 @@ function initCsvUpload() {
     setCsvError("");
     setCsvStatus(`${file.name} を読み込み中です…`);
     try {
-      const content = await file.text();
+      const content = await readCsvFileWithFallback(file);
       if (!content.trim()) {
         setCsvError("CSVファイルにデータがありません。");
         setCsvStatus("");

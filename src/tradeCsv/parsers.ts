@@ -79,3 +79,47 @@ export function safeInteger(value: string | undefined): number {
 export function padTimePart(value: number): string {
   return Math.max(0, value).toString().padStart(2, "0");
 }
+
+export interface ParsedDateTime {
+  isoDate: string;
+  isoTime: string;
+  isoDateTime: string;
+}
+
+export function parseDateTimeWithSeconds(value: string | undefined): ParsedDateTime | null {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const [datePart, timePartRaw] = trimmed.split(/\s+/);
+  const isoDate = toIsoDate(datePart);
+  if (!isoDate) {
+    return null;
+  }
+
+  if (!timePartRaw) {
+    return {
+      isoDate,
+      isoTime: "00:00",
+      isoDateTime: `${isoDate}T00:00:00`,
+    };
+  }
+
+  const [hourRaw, minuteRaw = "00", secondRaw = "00"] = timePartRaw.split(":");
+  const hour = safeInteger(hourRaw);
+  const minute = safeInteger(minuteRaw);
+  const second = safeInteger(secondRaw);
+
+  const hh = padTimePart(hour);
+  const mm = padTimePart(minute);
+  const ss = padTimePart(second);
+
+  return {
+    isoDate,
+    isoTime: `${hh}:${mm}`,
+    isoDateTime: `${isoDate}T${hh}:${mm}:${ss}`,
+  };
+}
