@@ -30,13 +30,14 @@ export const gmoClickSchema: TradeCsvSchema = {
     const realizedProfitConverted = parseCurrency(realizedProfitConvertedRaw);
     const hasConvertedProfit =
       realizedProfitConvertedRaw !== undefined && realizedProfitConvertedRaw.trim() !== "";
-    const netProfit = hasConvertedProfit ? realizedProfitConverted : realizedProfit;
+    const grossProfit = hasConvertedProfit ? realizedProfitConverted : realizedProfit;
 
     const fee =
       parseCurrency(readField(row, fieldIndices, "手数料")) +
       parseCurrency(readField(row, fieldIndices, "手数料消費税")) +
       parseCurrency(readField(row, fieldIndices, "新規手数料")) +
       parseCurrency(readField(row, fieldIndices, "新規手数料消費税"));
+    const netProfit = grossProfit - fee;
 
     return {
       isoDate: dateTime.isoDate,
@@ -49,7 +50,7 @@ export const gmoClickSchema: TradeCsvSchema = {
       quantity: parseDecimal(readField(row, fieldIndices, "約定数量")),
       price: parseDecimal(readField(row, fieldIndices, "約定単価")),
       fee,
-      grossProfit: realizedProfit,
+      grossProfit,
       netProfit,
     };
   },
