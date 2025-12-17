@@ -50,6 +50,45 @@ const DEFAULT_SPREADSHEET_ENDPOINT =
   "https://script.google.com/macros/s/AKfycbzIxdVW1G20fnrMeysplw2CQ3r2-qBgRd3dUBC97iRRkVbWNxAtC6OVQx9xnG1dNw/exec";
 const DEFAULT_SPREADSHEET_PSK = "testpsk";
 
+function countReplacementChars(text) {
+  if (typeof text !== "string" || text.length === 0) {
+    return 0;
+  }
+  const matches = text.match(/\ufffd/g);
+  return matches ? matches.length : 0;
+}
+
+function decodeCsvArrayBuffer(buffer) {
+  if (!(buffer instanceof ArrayBuffer)) {
+    return "";
+  }
+  const utf8Text = new TextDecoder("utf-8").decode(buffer);
+  const utf8ReplacementCount = countReplacementChars(utf8Text);
+  if (utf8ReplacementCount === 0) {
+    return utf8Text;
+  }
+
+  try {
+    const shiftJisText = new TextDecoder("shift_jis").decode(buffer);
+    const shiftJisReplacementCount = countReplacementChars(shiftJisText);
+    if (shiftJisReplacementCount === 0 || shiftJisReplacementCount < utf8ReplacementCount) {
+      return shiftJisText;
+    }
+  } catch (error) {
+    console.warn("Shift_JIS でのデコードに失敗したため UTF-8 を使用します:", error);
+  }
+
+  return utf8Text;
+}
+
+async function readCsvFileWithFallback(file) {
+  if (!(file instanceof File)) {
+    return "";
+  }
+  const buffer = await file.arrayBuffer();
+  return decodeCsvArrayBuffer(buffer);
+}
+
 function getEffectiveYearValue() {
   const parsed = Number.parseInt(yearInput?.value ?? "", 10);
   if (!Number.isNaN(parsed) && parsed > 0 && parsed <= 9999) {
@@ -1362,7 +1401,7 @@ function initCsvUpload() {
     setCsvError("");
     setCsvStatus(`${file.name} を読み込み中です…`);
     try {
-      const content = await file.text();
+      const content = await readCsvFileWithFallback(file);
       if (!content.trim()) {
         setCsvError("CSVファイルにデータがありません。");
         setCsvStatus("");

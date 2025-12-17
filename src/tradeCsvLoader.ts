@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { decodeCsvBuffer } from "./csv/decodeCsv";
 import { parseCsv } from "./csv/parseCsv";
 import { mapRowsToRecords } from "./tradeCsv/schemas";
 import { TradeRecord } from "./tradeTypes";
@@ -54,8 +55,8 @@ class FileCsvLoader implements TradeCsvLoader {
   constructor(private readonly csvPath: string) {}
 
   async loadRecords(): Promise<TradeRecord[]> {
-    const content = await fs.readFile(this.csvPath, "utf-8");
-    return parseTradeCsv(content);
+    const buffer = await fs.readFile(this.csvPath);
+    return parseTradeCsv(buffer);
   }
 }
 
@@ -67,7 +68,9 @@ class InlineCsvLoader implements TradeCsvLoader {
   }
 }
 
-function parseTradeCsv(csvContent: string): TradeRecord[] {
-  const rows = parseCsv(csvContent);
+function parseTradeCsv(csvContent: string | Buffer): TradeRecord[] {
+  const decodedContent =
+    typeof csvContent === "string" ? csvContent : decodeCsvBuffer(csvContent);
+  const rows = parseCsv(decodedContent);
   return mapRowsToRecords(rows);
 }
