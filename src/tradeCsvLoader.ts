@@ -52,7 +52,7 @@ class FetchCsvLoader implements TradeCsvLoader {
     const url = new URL(this.csvPath, baseUrl).toString();
     const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`CSVの取得に失敗しました (${response.status})`);
+      throw new Error(`CSVの取得に失敗しました (${response.status}) - URL: ${url}`);
     }
     const buffer = await response.arrayBuffer();
     return parseTradeCsv(buffer);
