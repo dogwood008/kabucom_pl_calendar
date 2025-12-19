@@ -1,27 +1,30 @@
 import { defineConfig } from "vite";
-import { viteStaticCopy } from "vite-plugin-static-copy";
 
-export default defineConfig({
-  root: "public",
-  base: "./",
-  publicDir: false,
-  plugins: [
-    viteStaticCopy({
-      targets: [
-        {
-          src: "data/dummy_kabucom.csv",
-          dest: "data",
-        },
-      ],
-    }),
-  ],
-  server: {
-    fs: {
-      allow: [".."],
+export default defineConfig(async () => {
+  const { viteStaticCopy } = await import("vite-plugin-static-copy");
+
+  return {
+    root: "public",
+    base: "./",
+    publicDir: false,
+    plugins: [
+      viteStaticCopy({
+        targets: [
+          {
+            src: "data/dummy_kabucom.csv",
+            dest: "data",
+          },
+        ],
+      }),
+    ],
+    server: {
+      fs: {
+        allow: [".."],
+      },
     },
-  },
-  build: {
-    outDir: "../dist",
-    emptyOutDir: true,
-  },
+    build: {
+      outDir: "../dist",
+      emptyOutDir: true,
+    },
+  };
 });
