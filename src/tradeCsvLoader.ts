@@ -48,7 +48,8 @@ class FetchCsvLoader implements TradeCsvLoader {
   constructor(private readonly csvPath: string) {}
 
   async loadRecords(): Promise<TradeRecord[]> {
-    const url = new URL(this.csvPath, window.location.href).toString();
+    const baseUrl = new URL(import.meta.env.BASE_URL ?? "./", window.location.href);
+    const url = new URL(this.csvPath, baseUrl).toString();
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`CSVの取得に失敗しました (${response.status})`);
